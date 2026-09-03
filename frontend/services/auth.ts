@@ -48,7 +48,11 @@ export async function login(
 export async function register(
   data: RegisterInput
 ): Promise<AuthResponse> {
-  const { confirmPassword, ...payload } = data;
+  const payload = {
+    email: data.email,
+    password: data.password,
+    name: data.name,
+  };
 
   return fetchJson<AuthResponse>("/api/auth/register", {
     method: "POST",
