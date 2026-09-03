@@ -14,6 +14,8 @@ from app.api.routes.goals import router as goals_router
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging
 
+from app.core.security_headers import register_security_headers
+
 configure_logging()
 
 app = FastAPI(
@@ -21,6 +23,8 @@ app = FastAPI(
 )
 
 register_exception_handlers(app)
+
+register_security_headers(app)
 
 app.add_middleware(
     CORSMiddleware,
