@@ -16,6 +16,8 @@ from app.core.logging import configure_logging
 
 from app.core.security_headers import register_security_headers
 
+from app.api.routes.integrations import router as integrations_router
+
 configure_logging()
 
 app = FastAPI(
@@ -46,11 +48,14 @@ app.include_router(
     prefix="/api",
 )
 
+app.include_router(auth_router)
+
 app.include_router(
     auth_router,
     prefix="/api",
 )
 
+app.include_router(integrations_router)
 
 @app.get("/")
 def root():

@@ -52,7 +52,7 @@ def clean_database():
     with test_engine.begin() as connection:
         connection.execute(
             text(
-                "TRUNCATE TABLE agent_runs, tasks, goals, users "
+                "TRUNCATE TABLE agent_runs, tasks, goals, users, integrations "
                 "RESTART IDENTITY CASCADE"
             )
         )
