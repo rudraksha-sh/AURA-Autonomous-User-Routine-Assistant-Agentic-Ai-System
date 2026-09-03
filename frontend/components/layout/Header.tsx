@@ -1,9 +1,13 @@
 import { Bell, Menu, UserRound } from "lucide-react";
 
+type HeaderProps = {
+  userName: string;
+};
+
 const iconButtonClassName =
   "flex size-10 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2";
 
-export function Header() {
+export function Header({ userName }: HeaderProps) {
   return (
     <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6 md:h-20 md:px-8">
       <div className="flex min-w-0 items-center gap-3">
@@ -36,8 +40,9 @@ export function Header() {
           >
             <UserRound className="size-5" />
           </span>
-          <span className="hidden text-sm font-medium text-slate-700 sm:inline">
-            User
+
+          <span className="hidden max-w-40 truncate text-sm font-medium text-slate-700 sm:inline">
+            {userName}
           </span>
         </div>
       </div>

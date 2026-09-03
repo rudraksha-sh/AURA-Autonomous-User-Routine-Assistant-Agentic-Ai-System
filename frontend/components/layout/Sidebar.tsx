@@ -14,7 +14,7 @@ type NavigationItem = {
 };
 
 const navigationItems: NavigationItem[] = [
-  { href: "/", icon: CircleGauge, label: "Dashboard" },
+  { href: "/dashboard", icon: CircleGauge, label: "Dashboard" },
   { href: "/goals", icon: Flag, label: "Goals" },
   { href: "/tasks", icon: CheckSquare, label: "Tasks" },
 ];
@@ -45,7 +45,7 @@ export function Sidebar() {
     <aside className="border-slate-200 bg-white md:flex md:min-h-screen md:w-64 md:flex-col md:border-r">
       <div className="flex h-16 items-center border-b border-slate-200 px-4 md:h-20 md:border-0 md:px-6">
         <Link
-          href="/"
+          href="/dashboard"
           aria-label="AURA dashboard"
           className="flex items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
         >
