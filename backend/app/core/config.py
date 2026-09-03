@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
 
     cors_origins: str = "http://localhost:3000"
+    
+    google_client_id: str
+    google_client_secret: str
+    google_redirect_uri: str
 
     model_config = SettingsConfigDict(
         env_file=".env",
