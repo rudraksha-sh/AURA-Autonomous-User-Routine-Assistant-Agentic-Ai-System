@@ -16,7 +16,11 @@ import {
 } from "@/lib/validations/auth";
 import { register as registerAccount } from "@/services/auth";
 
+import { useRouter } from "next/navigation";
+import { setAccessToken } from "@/services/auth-storage";
+
 export function RegisterForm() {
+  const router = useRouter();
   const [error, setError] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
 
@@ -39,10 +43,10 @@ export function RegisterForm() {
     setIsLoading(true);
 
     try {
-      await registerAccount(data);
+      const response = await registerAccount(data);
 
-      // Dashboard redirect will be added after
-      // the backend authentication contract is finalized.
+      setAccessToken(response.access_token);
+      router.push("/dashboard");
     } catch (err) {
       setError(
         err instanceof Error

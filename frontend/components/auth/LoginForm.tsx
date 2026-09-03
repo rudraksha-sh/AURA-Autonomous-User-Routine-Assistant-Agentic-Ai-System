@@ -11,9 +11,14 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { loginSchema, type LoginSchema } from "@/lib/validations/auth";
+
+import { useRouter } from "next/navigation";
+import { setAccessToken } from "@/services/auth-storage";
+
 import { login } from "@/services/auth";
 
 export function LoginForm() {
+  const router = useRouter();
   const [error, setError] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
 
@@ -34,10 +39,10 @@ export function LoginForm() {
     setIsLoading(true);
 
     try {
-      await login(data);
+      const response = await login(data);
 
-      // Authentication redirect will be added
-      // after the backend JWT contract is finalized.
+      setAccessToken(response.access_token);
+      router.push("/dashboard");
     } catch (err) {
       setError(
         err instanceof Error

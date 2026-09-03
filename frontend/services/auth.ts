@@ -5,6 +5,8 @@ import type {
   User,
 } from "@/types/auth";
 
+import { getAccessToken } from "@/services/auth-storage";
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -23,11 +25,13 @@ async function fetchJson<T>(
   if (!response.ok) {
     const errorBody = await response.json().catch(() => null);
 
+    console.error("API error:", errorBody);
+
     const message =
       errorBody &&
       typeof errorBody === "object" &&
-      "message" in errorBody
-        ? String(errorBody.message)
+      "detail" in errorBody
+        ? JSON.stringify(errorBody.detail)
         : `Request failed with status ${response.status}`;
 
     throw new Error(message);
@@ -61,7 +65,16 @@ export async function register(
 }
 
 export async function getMe(): Promise<User> {
+  const token = getAccessToken();
+
+  if (!token) {
+    throw new Error("Authentication required.");
+  }
+
   return fetchJson<User>("/api/auth/me", {
     method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
   });
 }
