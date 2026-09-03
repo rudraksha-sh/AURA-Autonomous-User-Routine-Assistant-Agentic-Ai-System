@@ -42,5 +42,4 @@ def clean_database():
 
 @pytest.fixture
 def client():
-    with TestClient(app) as test_client:
-        yield test_client
+    return TestClient(app, raise_server_exceptions=False)

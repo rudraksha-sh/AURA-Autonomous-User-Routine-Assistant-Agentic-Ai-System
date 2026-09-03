@@ -1,3 +1,7 @@
+from datetime import timedelta
+
+from app.core.security import create_access_token
+
 def test_register_user(client):
     response = client.post(
         "/api/auth/register",
@@ -90,3 +94,88 @@ def test_me_requires_authentication(client):
     response = client.get("/api/auth/me")
 
     assert response.status_code == 401
+    
+def test_malformed_token_is_rejected(client):
+    response = client.get(
+        "/api/auth/me",
+        headers={
+            "Authorization": "Bearer this-is-not-a-jwt",
+        },
+    )
+
+    assert response.status_code == 401
+    assert response.json()["error"] == "http_error"
+    assert response.json()["message"] == "Could not validate credentials"
+
+
+def test_tampered_token_is_rejected(client):
+    token = create_access_token({"sub": "1"})
+
+    tampered_token = token[:-1] + (
+        "a" if token[-1] != "a" else "b"
+    )
+
+    response = client.get(
+        "/api/auth/me",
+        headers={
+            "Authorization": f"Bearer {tampered_token}",
+        },
+    )
+
+    assert response.status_code == 401
+
+
+def test_expired_token_is_rejected(client):
+    token = create_access_token(
+        {"sub": "1"},
+        expires_delta=timedelta(seconds=-1),
+    )
+
+    response = client.get(
+        "/api/auth/me",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 401
+
+
+def test_token_without_subject_is_rejected(client):
+    token = create_access_token({})
+
+    response = client.get(
+        "/api/auth/me",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 401
+
+
+def test_token_with_non_numeric_subject_is_rejected(client):
+    token = create_access_token({"sub": "not-a-user-id"})
+
+    response = client.get(
+        "/api/auth/me",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 401
+
+
+def test_token_with_non_positive_subject_is_rejected(client):
+    for subject in ("0", "-1"):
+        token = create_access_token({"sub": subject})
+
+        response = client.get(
+            "/api/auth/me",
+            headers={
+                "Authorization": f"Bearer {token}",
+            },
+        )
+
+        assert response.status_code == 401

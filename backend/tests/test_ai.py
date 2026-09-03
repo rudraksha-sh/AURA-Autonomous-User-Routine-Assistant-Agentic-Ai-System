@@ -229,7 +229,9 @@ def test_ai_plan_ai_failure(client):
 
     data = response.json()
 
-    assert data["detail"] == "Failed to generate AI plan"
+    assert data["error"] == "internal_server_error"
+    assert data["message"] == "An unexpected error occurred"
+    assert "Simulated AI failure" not in response.text
 
 
 def test_ai_plan_ai_failure_does_not_create_goal(client):

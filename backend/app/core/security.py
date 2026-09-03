@@ -1,13 +1,14 @@
 from datetime import datetime, timedelta, timezone
+
+from argon2 import PasswordHasher
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from argon2 import PasswordHasher
-from jose import jwt
+from jose import JWTError, jwt
 
 from app.core.config import settings
 
-http_bearer = HTTPBearer()
 
+http_bearer = HTTPBearer()
 password_hasher = PasswordHasher()
 
 
@@ -56,7 +57,8 @@ def decode_access_token(token: str) -> dict:
         settings.jwt_secret_key,
         algorithms=[settings.jwt_algorithm],
     )
-    
+
+
 def get_current_user_id(
     credentials: HTTPAuthorizationCredentials = Depends(http_bearer),
 ) -> int:
@@ -66,16 +68,20 @@ def get_current_user_id(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    token = credentials.credentials
-
     try:
-        payload = decode_access_token(token)
+        payload = decode_access_token(credentials.credentials)
+
         subject = payload.get("sub")
 
         if subject is None:
             raise credentials_exception
 
-        return int(subject)
+        user_id = int(subject)
 
-    except (ValueError, TypeError):
+        if user_id <= 0:
+            raise credentials_exception
+
+        return user_id
+
+    except (JWTError, ValueError, TypeError):
         raise credentials_exception

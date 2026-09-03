@@ -20,19 +20,10 @@ def generate_plan(
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
-    try:
-        _, _, _, plan = create_goal_plan(
-            db=db,
-            user_id=user_id,
-            user_goal=request.goal,
-        )
+    _, _, _, plan = create_goal_plan(
+        db=db,
+        user_id=user_id,
+        user_goal=request.goal,
+    )
 
-        return plan
-
-    except Exception:
-        db.rollback()
-
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to generate AI plan",
-        )
+    return plan

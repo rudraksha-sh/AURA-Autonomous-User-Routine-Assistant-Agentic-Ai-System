@@ -11,9 +11,16 @@ from app.api.routes.ai import router as ai_router
 
 from app.api.routes.goals import router as goals_router
 
+from app.core.exceptions import register_exception_handlers
+from app.core.logging import configure_logging
+
+configure_logging()
+
 app = FastAPI(
     title=settings.app_name,
 )
+
+register_exception_handlers(app)
 
 app.add_middleware(
     CORSMiddleware,
