@@ -1,8 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-
+from app.core.rate_limit_dependencies import (
+    enforce_rate_limit,
+    login_limiter,
+    register_limiter,
+)
+from app.core.security import (
+    create_access_token,
+    get_current_user_id,
+    hash_password,
+    verify_password,
+)
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.auth import (
@@ -10,12 +20,6 @@ from app.schemas.auth import (
     TokenResponse,
     UserCreate,
     UserResponse,
-)
-from app.core.security import (
-    create_access_token,
-    get_current_user_id,
-    hash_password,
-    verify_password,
 )
 
 
@@ -32,8 +36,11 @@ router = APIRouter(
 )
 def register(
     user_data: UserCreate,
+    request: Request,
     db: Session = Depends(get_db),
 ):
+    enforce_rate_limit(register_limiter, request)
+
     existing_user = db.scalar(
         select(User).where(User.email == user_data.email)
     )
@@ -63,8 +70,11 @@ def register(
 )
 def login(
     login_data: LoginRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ):
+    enforce_rate_limit(login_limiter, request)
+
     user = db.scalar(
         select(User).where(User.email == login_data.email)
     )
@@ -87,7 +97,8 @@ def login(
         "access_token": access_token,
         "token_type": "bearer",
     }
-    
+
+
 @router.get(
     "/me",
     response_model=UserResponse,

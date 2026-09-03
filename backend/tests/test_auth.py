@@ -179,3 +179,64 @@ def test_token_with_non_positive_subject_is_rejected(client):
         )
 
         assert response.status_code == 401
+        
+        
+def test_login_rate_limit(client):
+    from app.core.rate_limit_dependencies import login_limiter
+
+    login_limiter.reset()
+
+    for _ in range(5):
+        response = client.post(
+            "/api/auth/login",
+            json={
+                "email": "rate-limit@example.com",
+                "password": "wrong-password",
+            },
+        )
+
+        assert response.status_code == 401
+
+    response = client.post(
+        "/api/auth/login",
+        json={
+            "email": "rate-limit@example.com",
+            "password": "wrong-password",
+        },
+    )
+
+    assert response.status_code == 429
+    assert response.headers["retry-after"] == "60"
+
+    login_limiter.reset()
+    
+def test_register_rate_limit(client):
+    from app.core.rate_limit_dependencies import register_limiter
+
+    register_limiter.reset()
+
+    for index in range(5):
+        response = client.post(
+            "/api/auth/register",
+            json={
+                "email": f"rate-limit-{index}@example.com",
+                "password": "ValidPassword123!",
+                "name": "Rate Limit Test",
+            },
+        )
+
+        assert response.status_code == 201
+
+    response = client.post(
+        "/api/auth/register",
+        json={
+            "email": "rate-limit-final@example.com",
+            "password": "ValidPassword123!",
+            "name": "Rate Limit Test",
+        },
+    )
+
+    assert response.status_code == 429
+    assert response.headers["retry-after"] == "60"
+
+    register_limiter.reset()
