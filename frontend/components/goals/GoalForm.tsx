@@ -17,6 +17,7 @@ export function GoalForm({
   isSubmitting,
 }: GoalFormProps) {
   const [title, setTitle] = React.useState("");
+  const [titleError, setTitleError] = React.useState<string | null>(null);
   const [description, setDescription] = React.useState("");
   const [priority, setPriority] = React.useState("medium");
 
@@ -26,16 +27,23 @@ export function GoalForm({
     event.preventDefault();
 
     if (!title.trim()) {
+      setTitleError("Enter a goal title.");
       return;
     }
 
-    await onSubmit({
-      title: title.trim(),
-      description: description.trim() || null,
-      priority,
-    });
+    try {
+      await onSubmit({
+        title: title.trim(),
+        description: description.trim() || null,
+        priority,
+      });
+    } catch {
+      // The parent displays the API error and the entered values stay available to retry.
+      return;
+    }
 
     setTitle("");
+    setTitleError(null);
     setDescription("");
     setPriority("medium");
   }
@@ -61,12 +69,22 @@ export function GoalForm({
           <input
             id="goal-title"
             value={title}
-            onChange={(event) => setTitle(event.target.value)}
+            onChange={(event) => {
+              setTitle(event.target.value);
+              if (event.target.value.trim()) setTitleError(null);
+            }}
             placeholder="e.g. Prepare for machine learning exam"
             maxLength={255}
             required
+            aria-invalid={titleError ? "true" : "false"}
+            aria-describedby={titleError ? "goal-title-error" : undefined}
             className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
           />
+          {titleError && (
+            <p id="goal-title-error" role="alert" className="mt-2 text-sm text-rose-600">
+              {titleError}
+            </p>
+          )}
         </div>
 
         <div>

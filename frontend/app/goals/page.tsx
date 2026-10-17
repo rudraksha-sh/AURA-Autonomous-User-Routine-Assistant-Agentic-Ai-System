@@ -21,36 +21,37 @@ export default function GoalsPage() {
     null
   );
   const [error, setError] = React.useState<string | null>(null);
+  const [loadError, setLoadError] = React.useState(false);
+  const [reloadKey, setReloadKey] = React.useState(0);
+
+  const loadGoals = React.useCallback(() => {
+    setIsLoading(true);
+    setError(null);
+    setLoadError(false);
+    setReloadKey((current) => current + 1);
+  }, []);
 
   React.useEffect(() => {
     let isMounted = true;
 
-    async function loadGoals() {
-      try {
-        const data = await getGoals();
-
+    getGoals()
+      .then((data) => {
+        if (isMounted) setGoals(data);
+      })
+      .catch((err: unknown) => {
         if (isMounted) {
-          setGoals(data);
+          setLoadError(true);
+          setError(err instanceof Error ? err.message : "Unable to load goals.");
         }
-      } catch (err) {
-        if (isMounted) {
-          setError(
-            err instanceof Error ? err.message : "Unable to load goals."
-          );
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    loadGoals();
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [reloadKey]);
 
   async function handleCreateGoal(data: {
     title: string;
@@ -102,7 +103,7 @@ export default function GoalsPage() {
       <Sidebar />
 
       <div className="min-w-0 flex-1">
-        <Header userName="User" />
+        <Header userName="User" title="Goals" />
 
         <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10 md:px-8">
           <div>
@@ -120,7 +121,14 @@ export default function GoalsPage() {
               role="alert"
               className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
             >
-              {error}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <span>{error}</span>
+                {loadError && (
+                  <button type="button" onClick={loadGoals} disabled={isLoading} className="shrink-0 font-semibold hover:underline disabled:opacity-50">
+                    Retry loading goals
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
@@ -142,12 +150,14 @@ export default function GoalsPage() {
               </span>
             </div>
 
-            <GoalList
-              goals={goals}
-              isLoading={isLoading}
-              deletingGoalId={deletingGoalId}
-              onDelete={handleDeleteGoal}
-            />
+            {!loadError && (
+              <GoalList
+                goals={goals}
+                isLoading={isLoading}
+                deletingGoalId={deletingGoalId}
+                onDelete={handleDeleteGoal}
+              />
+            )}
           </section>
         </main>
       </div>
