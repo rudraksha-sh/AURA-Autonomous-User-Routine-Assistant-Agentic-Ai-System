@@ -17,7 +17,7 @@ import { setAccessToken } from "@/services/auth-storage";
 
 import { login } from "@/services/auth";
 
-export function LoginForm() {
+export function LoginForm({ redirectTo }: { redirectTo?: string }) {
   const router = useRouter();
   const [error, setError] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
@@ -42,7 +42,14 @@ export function LoginForm() {
       const response = await login(data);
 
       setAccessToken(response.access_token);
-      router.push("/dashboard");
+      let destination = "/dashboard";
+      if (redirectTo?.startsWith("/")) {
+        const safeUrl = new URL(redirectTo, "https://aura.local");
+        if (safeUrl.origin === "https://aura.local" && safeUrl.pathname !== "/login") {
+          destination = `${safeUrl.pathname}${safeUrl.search}${safeUrl.hash}`;
+        }
+      }
+      router.replace(destination);
     } catch (err) {
       setError(
         err instanceof Error

@@ -1,9 +1,12 @@
+from datetime import timedelta
+
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.db.session import Base, get_db
 from app.main import app
+from app.core.security import create_access_token
 
 
 def test_task_crud_persistence_and_user_isolation(tmp_path):
@@ -36,6 +39,12 @@ def test_task_crud_persistence_and_user_isolation(tmp_path):
         owner_headers = {"Authorization": f"Bearer {owner_token}"}
         other_headers = {"Authorization": f"Bearer {other_token}"}
 
+        assert client.get("/api/goals").status_code == 401
+        assert client.get("/api/tasks").status_code == 401
+        assert client.get("/api/goals", headers={"Authorization": "Bearer invalid"}).status_code == 401
+        expired_token = create_access_token({"sub": "1"}, expires_delta=timedelta(seconds=-1))
+        assert client.get("/api/tasks", headers={"Authorization": f"Bearer {expired_token}"}).status_code == 401
+
         goal_response = client.post(
             "/api/goals",
             headers=owner_headers,
@@ -43,6 +52,10 @@ def test_task_crud_persistence_and_user_isolation(tmp_path):
         )
         assert goal_response.status_code == 201
         goal_id = goal_response.json()["id"]
+        assert client.get(f"/api/goals/{goal_id}", headers=owner_headers).status_code == 200
+        assert client.get(f"/api/goals/{goal_id}", headers=other_headers).status_code == 404
+        assert client.patch(f"/api/goals/{goal_id}", headers=other_headers, json={"title": "stolen"}).status_code == 404
+        assert client.delete(f"/api/goals/{goal_id}", headers=other_headers).status_code == 404
 
         created = client.post(
             f"/api/tasks/goals/{goal_id}/tasks",
@@ -56,6 +69,15 @@ def test_task_crud_persistence_and_user_isolation(tmp_path):
         )
         assert created.status_code == 201
         task_id = created.json()["id"]
+        assert client.get(f"/api/tasks/goals/{goal_id}/tasks", headers=other_headers).status_code == 404
+        assert client.post(
+            f"/api/tasks/goals/{goal_id}/tasks",
+            headers=other_headers,
+            json={"title": "Cross-user task"},
+        ).status_code == 404
+        assert client.get(f"/api/tasks/{task_id}", headers=other_headers).status_code == 404
+        assert client.patch(f"/api/tasks/{task_id}", headers=other_headers, json={"title": "stolen"}).status_code == 404
+        assert client.delete(f"/api/tasks/{task_id}", headers=other_headers).status_code == 404
 
         updated = client.patch(
             f"/api/tasks/{task_id}",
@@ -94,6 +116,24 @@ def test_task_crud_persistence_and_user_isolation(tmp_path):
         assert deleted.status_code == 204
         assert refreshed_client.get("/api/tasks", headers=owner_headers).json() == []
         assert refreshed_client.get(f"/api/tasks/{task_id}", headers=owner_headers).status_code == 404
+
+        deleted_goal = refreshed_client.delete(f"/api/goals/{goal_id}", headers=owner_headers)
+        assert deleted_goal.status_code == 204
+        assert refreshed_client.get(f"/api/goals/{goal_id}", headers=owner_headers).status_code == 404
+
+        logout_response = refreshed_client.post("/api/auth/logout", headers=owner_headers)
+        assert logout_response.status_code == 204
+        assert refreshed_client.get("/api/auth/me", headers=owner_headers).status_code == 401
+        assert refreshed_client.get("/api/goals", headers=owner_headers).status_code == 401
+        assert refreshed_client.get("/api/tasks", headers=owner_headers).status_code == 401
+
+        new_login = refreshed_client.post(
+            "/api/auth/login",
+            json={"email": "task-owner-api@example.com", "password": "StrongPass123!"},
+        )
+        assert new_login.status_code == 200
+        new_headers = {"Authorization": f"Bearer {new_login.json()['access_token']}"}
+        assert refreshed_client.get("/api/auth/me", headers=new_headers).status_code == 200
     finally:
         app.dependency_overrides.pop(get_db, None)
         engine.dispose()

@@ -5,7 +5,7 @@ import type {
   User,
 } from "@/types/auth";
 
-import { getAccessToken } from "@/services/auth-storage";
+import { expireAccessToken, getAccessToken } from "@/services/auth-storage";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -22,7 +22,8 @@ export class ApiError extends Error {
 
 async function fetchJson<T>(
   url: string,
-  options: RequestInit
+  options: RequestInit,
+  protectedRequest = false,
 ): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${url}`, {
     ...options,
@@ -35,7 +36,7 @@ async function fetchJson<T>(
   if (!response.ok) {
     const errorBody = await response.json().catch(() => null);
 
-    console.error("API error:", errorBody);
+    if (protectedRequest && response.status === 401) expireAccessToken();
 
     const message =
       errorBody && typeof errorBody === "object" && "message" in errorBody
@@ -86,5 +87,18 @@ export async function getMe(): Promise<User> {
     headers: {
       Authorization: `Bearer ${token}`,
     },
+  }, true);
+}
+
+export async function logout(): Promise<void> {
+  const token = getAccessToken();
+  if (!token) return;
+  const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
   });
+  if (!response.ok) {
+    if (response.status === 401) expireAccessToken();
+    throw new ApiError(`Logout failed with status ${response.status}.`, response.status);
+  }
 }

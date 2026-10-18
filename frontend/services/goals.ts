@@ -1,4 +1,4 @@
-import { getAccessToken } from "@/services/auth-storage";
+import { expireAccessToken, getAccessToken } from "@/services/auth-storage";
 import { ApiError } from "@/services/auth";
 import type {
   CreateGoalInput,
@@ -16,7 +16,8 @@ async function fetchJson<T>(
   const token = getAccessToken();
 
   if (!token) {
-    throw new Error("Authentication required.");
+    expireAccessToken();
+    throw new ApiError("Authentication required.", 401);
   }
 
   const response = await fetch(`${API_BASE_URL}${url}`, {
@@ -29,6 +30,7 @@ async function fetchJson<T>(
   });
 
   if (!response.ok) {
+    if (response.status === 401) expireAccessToken();
     const errorBody = await response.json().catch(() => null);
 
     const message =

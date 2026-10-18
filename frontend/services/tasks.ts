@@ -1,4 +1,4 @@
-import { getAccessToken } from "@/services/auth-storage";
+import { expireAccessToken, getAccessToken } from "@/services/auth-storage";
 import type { CreateTaskInput, Task, UpdateTaskInput } from "@/types/task";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -12,7 +12,10 @@ export class TaskApiError extends Error {
 
 async function fetchJson<T>(url: string, options: RequestInit = {}): Promise<T> {
   const token = getAccessToken();
-  if (!token) throw new TaskApiError("Authentication required.", 401);
+  if (!token) {
+    expireAccessToken();
+    throw new TaskApiError("Authentication required.", 401);
+  }
 
   let response: Response;
   try {
@@ -29,6 +32,7 @@ async function fetchJson<T>(url: string, options: RequestInit = {}): Promise<T> 
   }
 
   if (!response.ok) {
+    if (response.status === 401) expireAccessToken();
     const body = await response.json().catch(() => null);
     const message = body && typeof body === "object" && "detail" in body
       ? String(body.detail)

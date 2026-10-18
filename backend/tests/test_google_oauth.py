@@ -123,6 +123,15 @@ def test_google_connect_requires_authentication(client):
 
 
 def test_google_connect_returns_authorization_url(client):
+    registration = client.post(
+        "/api/auth/register",
+        json={
+            "email": "google-connect@example.com",
+            "password": "TestPassword@123",
+            "name": "Google Connect User",
+        },
+    )
+    assert registration.status_code == 201
     token = create_access_token({"sub": "1"})
 
     response = client.get(

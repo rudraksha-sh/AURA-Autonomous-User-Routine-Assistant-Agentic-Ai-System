@@ -19,6 +19,7 @@ from app.core.logging import configure_logging
 from app.core.security_headers import register_security_headers
 
 from app.api.routes.integrations import router as integrations_router
+from app.api.routes.planner import router as planner_router
 from app.db.session import Base, engine
 # Register model tables before creating the local SQLite development schema.
 from app import models
@@ -50,6 +51,7 @@ app.add_middleware(
 )
 
 app.include_router(ai_router)
+app.include_router(planner_router)
 
 app.include_router(
     goals_router,

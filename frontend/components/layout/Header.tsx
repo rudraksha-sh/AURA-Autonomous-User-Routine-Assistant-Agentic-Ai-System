@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { LogOut, UserRound } from "lucide-react";
 
 import { clearAccessToken } from "@/services/auth-storage";
+import { logout } from "@/services/auth";
 
 type HeaderProps = {
   userName: string;
@@ -13,9 +14,15 @@ type HeaderProps = {
 export function Header({ userName, title = "Dashboard" }: HeaderProps) {
   const router = useRouter();
 
-  function handleLogout() {
-    clearAccessToken();
-    router.replace("/login");
+  async function handleLogout() {
+    try {
+      await logout();
+    } catch {
+      // Local logout must still complete if the API cannot be reached.
+    } finally {
+      clearAccessToken();
+      router.replace("/login");
+    }
   }
 
   return (

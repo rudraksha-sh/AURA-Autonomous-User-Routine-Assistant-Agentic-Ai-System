@@ -1,4 +1,5 @@
 const ACCESS_TOKEN_KEY = "aura_access_token";
+const SESSION_EXPIRED_EVENT = "aura:session-expired";
 
 export function setAccessToken(token: string): void {
   if (typeof window === "undefined") return;
@@ -13,4 +14,11 @@ export function getAccessToken(): string | null {
 export function clearAccessToken(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(ACCESS_TOKEN_KEY);
+}
+
+export function expireAccessToken(): void {
+  clearAccessToken();
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+  }
 }

@@ -1,3 +1,4 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -25,6 +26,15 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @model_validator(mode="after")
+    def require_strong_production_jwt_secret(self):
+        if self.environment.lower() in {"production", "prod"}:
+            if len(self.jwt_secret_key.encode("utf-8")) < 32:
+                raise ValueError("JWT_SECRET_KEY must be at least 32 bytes in production")
+            if self.jwt_secret_key == "your-jwt-secret-key" or self.jwt_secret_key.startswith("replace-"):
+                raise ValueError("JWT_SECRET_KEY must be replaced in production")
+        return self
 
     @property
     def cors_origin_list(self) -> list[str]:

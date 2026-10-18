@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text
+from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -9,6 +9,7 @@ from app.db.session import Base
 
 class AgentRun(Base):
     __tablename__ = "agent_runs"
+    __table_args__ = (UniqueConstraint("user_id", "idempotency_key", name="uq_agent_runs_user_idempotency"),)
 
     id: Mapped[int] = mapped_column(
         primary_key=True,
@@ -46,6 +47,8 @@ class AgentRun(Base):
         String(50),
         nullable=False,
     )
+
+    idempotency_key: Mapped[str | None] = mapped_column(String(36), nullable=True)
 
     error: Mapped[str | None] = mapped_column(
         Text,
