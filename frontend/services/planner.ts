@@ -1,6 +1,6 @@
 import { expireAccessToken, getAccessToken } from "@/services/auth-storage";
 import type { Task } from "@/types/task";
-import type { PlanPreview, ProposedPlanTask } from "@/types/planner";
+import type { DailySchedule, PlanPreview, PlanningPreferences, ProposedPlanTask, ScheduleEntryProposal, SchedulePreview, WhatIfRequest, WhatIfResult } from "@/types/planner";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -11,7 +11,7 @@ export class PlannerApiError extends Error {
   }
 }
 
-async function request<T>(path: string, body: unknown): Promise<T> {
+async function request<T>(path: string, body?: unknown, method = "POST"): Promise<T> {
   const token = getAccessToken();
   if (!token) {
     expireAccessToken();
@@ -20,9 +20,9 @@ async function request<T>(path: string, body: unknown): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
-      method: "POST",
+      method,
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify(body),
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
   } catch {
     throw new PlannerApiError("Could not reach AURA. Check your connection and retry.", 0);
@@ -42,4 +42,33 @@ export function generatePlan(goalId: number): Promise<PlanPreview> {
 
 export function savePlan(goalId: number, idempotencyKey: string, tasks: ProposedPlanTask[]): Promise<{ tasks: Task[] }> {
   return request(`/api/planner/goals/${goalId}/save`, { idempotency_key: idempotencyKey, tasks });
+}
+
+export function getPlanningPreferences(): Promise<PlanningPreferences> {
+  return request("/api/planner/preferences", undefined, "GET");
+}
+
+export function savePlanningPreferences(preferences: PlanningPreferences): Promise<PlanningPreferences> {
+  return request("/api/planner/preferences", preferences, "PUT");
+}
+
+export function previewDailySchedule(targetDate: string): Promise<SchedulePreview> {
+  return request("/api/planner/schedules/preview", { target_date: targetDate });
+}
+
+export async function getDailySchedule(targetDate: string): Promise<DailySchedule | null> {
+  const response = await request<{ schedule: DailySchedule | null }>(`/api/planner/schedules/day/${targetDate}`, undefined, "GET");
+  return response.schedule;
+}
+
+export function approveDailySchedule(targetDate: string, idempotencyKey: string, entries: ScheduleEntryProposal[]): Promise<DailySchedule> {
+  return request("/api/planner/schedules", {
+    target_date: targetDate,
+    idempotency_key: idempotencyKey,
+    entries: entries.map(({ task_id, start_at, duration_minutes }) => ({ task_id, start_at, duration_minutes })),
+  });
+}
+
+export function simulateDailySchedule(scenario: WhatIfRequest): Promise<WhatIfResult> {
+  return request("/api/planner/schedules/what-if", scenario);
 }

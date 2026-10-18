@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   CircleGauge,
+  CalendarClock,
   Flag,
   ListTodo,
   Plus,
@@ -21,6 +22,7 @@ const navigationItems: NavigationItem[] = [
   { href: "/dashboard", icon: CircleGauge, label: "Dashboard" },
   { href: "/goals", icon: Flag, label: "Goals" },
   { href: "/tasks", icon: ListTodo, label: "Tasks" },
+  { href: "/planner", icon: CalendarClock, label: "Planner" },
 ];
 
 function NavigationLink({ href, icon: Icon, label, isActive }: NavigationItem & { isActive: boolean }) {

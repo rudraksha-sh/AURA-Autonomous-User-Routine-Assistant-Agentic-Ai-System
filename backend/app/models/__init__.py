@@ -3,6 +3,7 @@ from app.models.goal import Goal
 from app.models.task import Task
 from app.models.user import User
 from app.models.integration import Integration
+from app.models.planning import DailySchedule, ScheduleEntry, UserPlanningPreference
 
 
 __all__ = [
@@ -10,4 +11,7 @@ __all__ = [
     "Goal",
     "Task",
     "AgentRun",
+    "UserPlanningPreference",
+    "DailySchedule",
+    "ScheduleEntry",
 ]

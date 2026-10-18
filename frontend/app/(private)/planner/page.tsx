@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowLeft, CalendarDays, Check, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import { ArrowLeft, CalendarDays, CalendarRange, Check, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { getGoals } from "@/services/goals";
@@ -87,6 +87,7 @@ export default function PlannerPage() {
           <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">Build a practical plan</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">AURA uses a fixed set of planning rules and task templates. The suggestions are a starting point, not AI-generated advice. Review and edit every task before saving.</p>
+            <Link href="/planner/daily" className="mt-5 inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 hover:bg-blue-100"><CalendarRange aria-hidden="true" className="size-4" />Build a daily schedule</Link>
             {error && <p role="alert" className="mt-5 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
             {notice && <div role="status" className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800"><span className="flex items-center gap-2"><Check aria-hidden="true" className="size-4" />{notice}</span><Link href="/tasks" className="font-semibold underline">View tasks</Link></div>}
             {!loading && goals.length === 0 ? <div className="mt-6 rounded-xl bg-slate-50 p-5"><p className="text-sm text-slate-700">Create a goal before planning tasks.</p><Link href="/goals" className="mt-3 inline-flex font-semibold text-blue-600">Create a goal</Link></div> : (

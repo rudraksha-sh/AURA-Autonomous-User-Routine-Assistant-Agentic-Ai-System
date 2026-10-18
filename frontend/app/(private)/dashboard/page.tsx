@@ -9,6 +9,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   CalendarDays,
+  CalendarClock,
   CheckCircle2,
   CircleAlert,
   Clock3,
@@ -30,6 +31,8 @@ import type { User } from "@/types/auth";
 import type { Goal } from "@/types/goal";
 import { getTasks, TaskApiError, updateTask } from "@/services/tasks";
 import type { Task } from "@/types/task";
+import { getDailySchedule, getPlanningPreferences } from "@/services/planner";
+import type { DailySchedule } from "@/types/planner";
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -60,6 +63,10 @@ function formatShortDate(value: string | null) {
     month: "short",
     year: "numeric",
   }).format(date);
+}
+
+function formatScheduleTime(value: string, timeZone: string) {
+  return new Intl.DateTimeFormat("en-IN", { timeZone, hour: "numeric", minute: "2-digit" }).format(new Date(value));
 }
 
 function isOverdue(goal: Goal) {
@@ -256,6 +263,30 @@ export default function DashboardPage() {
   const [goalsLoading, setGoalsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [goalsError, setGoalsError] = React.useState<string | null>(null);
+  const [todaySchedule, setTodaySchedule] = React.useState<DailySchedule | null>(null);
+  const [scheduleLoading, setScheduleLoading] = React.useState(true);
+  const [scheduleError, setScheduleError] = React.useState<string | null>(null);
+
+  const loadTodaySchedule = React.useCallback(async () => {
+    setScheduleLoading(true);
+    setScheduleError(null);
+    try {
+      const preferences = await getPlanningPreferences();
+      const dateParts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: preferences.timezone_name,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).formatToParts(new Date());
+      const dateValues = Object.fromEntries(dateParts.map((part) => [part.type, part.value]));
+      const day = `${dateValues.year}-${dateValues.month}-${dateValues.day}`;
+      setTodaySchedule(await getDailySchedule(day));
+    } catch (err) {
+      setScheduleError(err instanceof Error ? err.message : "Unable to load your saved schedule.");
+    } finally {
+      setScheduleLoading(false);
+    }
+  }, []);
 
   const loadTasks = React.useCallback(async () => {
     setTasksLoading(true);
@@ -338,11 +369,12 @@ export default function DashboardPage() {
 
     loadDashboard();
     void Promise.resolve().then(loadTasks);
+    void Promise.resolve().then(loadTodaySchedule);
 
     return () => {
       isMounted = false;
     };
-  }, [router, loadTasks]);
+  }, [router, loadTasks, loadTodaySchedule]);
 
   const activeGoals = goals.filter(
     (goal) => goal.status.toLowerCase() === "active"
@@ -385,6 +417,9 @@ export default function DashboardPage() {
       deadline.getMonth() === today.getMonth() &&
       deadline.getDate() === today.getDate();
   });
+  const openScheduleEntries = (todaySchedule?.entries ?? []).filter((entry) =>
+    tasks.find((task) => task.id === entry.task_id)?.status.toLowerCase() !== "completed"
+  );
 
   async function toggleTask(task: Task) {
     try {
@@ -941,6 +976,18 @@ export default function DashboardPage() {
               </div>
             </section>
           </div>
+
+          <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <SectionHeading
+              eyebrow="Daily plan"
+              title="Today's schedule"
+              description={todaySchedule ? `${todaySchedule.entries.length} saved work sessions · ${todaySchedule.timezone_name}` : "Turn your open tasks into a time-aware schedule."}
+              action={<Link href="/planner/daily" aria-label="Build or edit today's schedule" className="flex size-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100"><CalendarClock aria-hidden="true" className="size-5" /></Link>}
+            />
+            <div className="mt-5">
+              {scheduleLoading || tasksLoading ? <div role="status" className="space-y-3"><span className="sr-only">Loading today&apos;s schedule…</span><div className="h-14 animate-pulse rounded-xl bg-slate-100" /><div className="h-14 animate-pulse rounded-xl bg-slate-100" /></div> : scheduleError ? <div role="alert" className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800"><p>{scheduleError}</p><button type="button" onClick={() => void loadTodaySchedule()} className="mt-2 inline-flex items-center gap-2 font-semibold hover:underline"><RefreshCw aria-hidden="true" className="size-4" />Retry</button></div> : !todaySchedule ? <EmptyState icon={CalendarClock} title="No approved schedule yet" description="Build and approve a daily plan to see your sessions here." action={<Link href="/planner/daily" className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"><CalendarClock aria-hidden="true" className="size-4" />Build today&apos;s schedule</Link>} /> : openScheduleEntries.length === 0 ? <EmptyState icon={CheckCircle2} title="Your scheduled tasks are complete" description="There are no remaining task sessions in today&apos;s approved schedule." action={<Link href="/planner/daily" className="text-sm font-semibold text-blue-600 hover:text-blue-700">Review schedule</Link>} /> : <div className="space-y-2">{openScheduleEntries.slice(0, 5).map((entry) => <div key={entry.id} className="flex items-center gap-3 rounded-xl border border-slate-200 p-3"><span className="w-20 shrink-0 text-xs font-semibold text-blue-700">{formatScheduleTime(entry.start_at, todaySchedule.timezone_name)}</span><span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">{entry.title}</span><span className="shrink-0 text-xs text-slate-500">{entry.duration_minutes} min</span></div>)}<Link href="/planner/daily" className="inline-flex items-center gap-1 pt-2 text-sm font-semibold text-blue-600 hover:text-blue-700">View full schedule <ArrowRight aria-hidden="true" className="size-4" /></Link></div>}
+            </div>
+          </section>
 
           {/* Attention and quick actions */}
           <div className="grid gap-6 lg:grid-cols-3">
