@@ -3,6 +3,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowDownRight,
   ArrowRight,
@@ -22,7 +23,8 @@ import {
 
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { getMe } from "@/services/auth";
+import { ApiError, getMe } from "@/services/auth";
+import { clearAccessToken } from "@/services/auth-storage";
 import { getGoals } from "@/services/goals";
 import type { User } from "@/types/auth";
 import type { Goal } from "@/types/goal";
@@ -242,6 +244,7 @@ function DashboardSkeleton() {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [user, setUser] = React.useState<User | null>(null);
   const [goals, setGoals] = React.useState<Goal[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -294,6 +297,12 @@ export default function DashboardPage() {
         }
       } catch (err) {
         if (isMounted) {
+          if (err instanceof ApiError && err.status === 401) {
+            clearAccessToken();
+            router.replace("/login");
+            return;
+          }
+
           setError(
             err instanceof Error
               ? err.message
@@ -310,7 +319,7 @@ export default function DashboardPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [router]);
 
   const activeGoals = goals.filter(
     (goal) => goal.status.toLowerCase() === "active"

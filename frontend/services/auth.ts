@@ -10,6 +10,16 @@ import { getAccessToken } from "@/services/auth-storage";
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 async function fetchJson<T>(
   url: string,
   options: RequestInit
@@ -28,13 +38,13 @@ async function fetchJson<T>(
     console.error("API error:", errorBody);
 
     const message =
-      errorBody &&
-      typeof errorBody === "object" &&
-      "detail" in errorBody
-        ? JSON.stringify(errorBody.detail)
-        : `Request failed with status ${response.status}`;
+      errorBody && typeof errorBody === "object" && "message" in errorBody
+        ? String(errorBody.message)
+        : errorBody && typeof errorBody === "object" && "detail" in errorBody
+          ? JSON.stringify(errorBody.detail)
+          : `Request failed with status ${response.status}`;
 
-    throw new Error(message);
+    throw new ApiError(message, response.status);
   }
 
   return response.json() as Promise<T>;
@@ -51,14 +61,14 @@ export async function login(
 
 export async function register(
   data: RegisterInput
-): Promise<AuthResponse> {
+): Promise<User> {
   const payload = {
     email: data.email,
     password: data.password,
     name: data.name,
   };
 
-  return fetchJson<AuthResponse>("/api/auth/register", {
+  return fetchJson<User>("/api/auth/register", {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -68,7 +78,7 @@ export async function getMe(): Promise<User> {
   const token = getAccessToken();
 
   if (!token) {
-    throw new Error("Authentication required.");
+    throw new ApiError("Authentication required.", 401);
   }
 
   return fetchJson<User>("/api/auth/me", {

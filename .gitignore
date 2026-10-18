@@ -9,6 +9,9 @@ __pycache__/
 venv/
 env/
 
+# Local development databases
+backend/*.db
+
 # Environment variables
 .env
 .env.*
@@ -34,4 +37,3 @@ node_modules/
 .next/
 out/
 dist/
-"@

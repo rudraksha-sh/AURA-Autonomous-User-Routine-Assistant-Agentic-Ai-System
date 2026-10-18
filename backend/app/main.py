@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from app.api.routes.tasks import router as tasks_router
@@ -17,11 +19,22 @@ from app.core.logging import configure_logging
 from app.core.security_headers import register_security_headers
 
 from app.api.routes.integrations import router as integrations_router
+from app.db.session import Base, engine
+# Register model tables before creating the local SQLite development schema.
+from app import models
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    if settings.environment == "development" and engine.dialect.name == "sqlite":
+        Base.metadata.create_all(bind=engine)
+    yield
 
 configure_logging()
 
 app = FastAPI(
     title=settings.app_name,
+    lifespan=lifespan,
 )
 
 register_exception_handlers(app)

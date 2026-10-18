@@ -14,7 +14,7 @@ import {
   registerSchema,
   type RegisterSchema,
 } from "@/lib/validations/auth";
-import { register as registerAccount } from "@/services/auth";
+import { login, register as registerAccount } from "@/services/auth";
 
 import { useRouter } from "next/navigation";
 import { setAccessToken } from "@/services/auth-storage";
@@ -43,7 +43,11 @@ export function RegisterForm() {
     setIsLoading(true);
 
     try {
-      const response = await registerAccount(data);
+      const account = await registerAccount(data);
+      const response = await login({
+        email: account.email,
+        password: data.password,
+      });
 
       setAccessToken(response.access_token);
       router.push("/dashboard");
