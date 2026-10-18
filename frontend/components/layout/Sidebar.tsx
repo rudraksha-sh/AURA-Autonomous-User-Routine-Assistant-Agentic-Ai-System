@@ -1,6 +1,15 @@
+"use client";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CircleGauge, Flag, type LucideIcon } from "lucide-react";
+import {
+  CircleGauge,
+  Flag,
+  ListTodo,
+  Plus,
+  Sparkles,
+  type LucideIcon,
+} from "lucide-react";
 
 type NavigationItem = {
   href: string;
@@ -11,6 +20,7 @@ type NavigationItem = {
 const navigationItems: NavigationItem[] = [
   { href: "/dashboard", icon: CircleGauge, label: "Dashboard" },
   { href: "/goals", icon: Flag, label: "Goals" },
+  { href: "/tasks", icon: ListTodo, label: "Tasks" },
 ];
 
 function NavigationLink({ href, icon: Icon, label, isActive }: NavigationItem & { isActive: boolean }) {
@@ -53,6 +63,9 @@ export function Sidebar() {
       </div>
 
       <nav aria-label="Primary navigation" className="px-3 py-3 md:px-4 md:py-6">
+        <p className="mb-2 hidden px-3 text-[11px] font-semibold tracking-[0.16em] text-slate-400 uppercase md:block">
+          Workspace
+        </p>
         <ul className="flex gap-1 overflow-x-auto md:flex-col">
           {navigationItems.map((item) => (
             <li key={item.href} className="shrink-0 md:w-full">
@@ -62,6 +75,29 @@ export function Sidebar() {
         </ul>
       </nav>
 
+      <div className="flex items-center gap-2 px-3 pb-3 md:block md:px-4 md:pb-0">
+        <Link
+          href="/goals"
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 md:w-full"
+        >
+          <Plus aria-hidden="true" className="size-4" />
+          Create a goal
+        </Link>
+      </div>
+
+      <div className="hidden md:mt-auto md:block md:p-4">
+        <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
+          <span className="flex size-9 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm ring-1 ring-blue-100">
+            <Sparkles aria-hidden="true" className="size-4" />
+          </span>
+          <p className="mt-3 text-sm font-semibold text-slate-900">
+            Small steps add up
+          </p>
+          <p className="mt-1 text-xs leading-5 text-slate-600">
+            Give your goals a clear next step and a realistic deadline.
+          </p>
+        </div>
+      </div>
     </aside>
   );
 }

@@ -129,6 +129,20 @@ def test_get_goal_tasks(client):
     assert tasks[1]["title"] == "Task Two"
 
 
+def test_list_user_tasks_only_returns_tasks_for_current_user(client):
+    first_token = register_and_login(client, "task-owner@example.com")
+    second_token = register_and_login(client, "other-task-owner@example.com")
+    first_goal = create_goal(client, first_token, "First user's goal")
+    second_goal = create_goal(client, second_token, "Second user's goal")
+    first_task = create_task(client, first_token, first_goal["id"], "Private task")
+    create_task(client, second_token, second_goal["id"], "Other private task")
+
+    response = client.get("/api/tasks", headers=auth_headers(first_token))
+
+    assert response.status_code == 200
+    assert [task["id"] for task in response.json()] == [first_task["id"]]
+
+
 def test_get_single_task(client):
     token = register_and_login(
         client,
@@ -180,6 +194,8 @@ def test_update_task(client):
             "priority": "high",
             "estimated_minutes": 45,
             "position": 2,
+            "description": "Updated details",
+            "deadline": "2026-10-20T12:00:00Z",
         },
     )
 
@@ -192,6 +208,8 @@ def test_update_task(client):
     assert data["priority"] == "high"
     assert data["estimated_minutes"] == 45
     assert data["position"] == 2
+    assert data["description"] == "Updated details"
+    assert data["deadline"].startswith("2026-10-20T12:00:00")
 
 
 def test_delete_task(client):

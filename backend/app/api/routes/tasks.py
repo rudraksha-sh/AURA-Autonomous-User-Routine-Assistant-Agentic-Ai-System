@@ -13,6 +13,7 @@ from app.services.task_service import (
     delete_task,
     get_goal_tasks,
     get_task,
+    get_user_tasks,
     update_task,
 )
 
@@ -21,6 +22,14 @@ router = APIRouter(
     prefix="/tasks",
     tags=["Tasks"],
 )
+
+
+@router.get("", response_model=list[TaskResponse])
+def list_user_tasks(
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    return get_user_tasks(db=db, user_id=user_id)
 
 
 @router.post(

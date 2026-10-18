@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -6,8 +7,8 @@ from pydantic import BaseModel, ConfigDict, Field
 class TaskCreate(BaseModel):
     title: str = Field(min_length=1, max_length=255)
     description: str | None = None
-    status: str = Field(default="pending", max_length=50)
-    priority: str = Field(default="medium", max_length=20)
+    status: Literal["pending", "in_progress", "completed"] = "pending"
+    priority: Literal["low", "medium", "high"] = "medium"
     estimated_minutes: int | None = Field(default=None, ge=1)
     deadline: datetime | None = None
     position: int = Field(default=1, ge=1)
@@ -16,8 +17,8 @@ class TaskCreate(BaseModel):
 class TaskUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = None
-    status: str | None = Field(default=None, max_length=50)
-    priority: str | None = Field(default=None, max_length=20)
+    status: Literal["pending", "in_progress", "completed"] | None = None
+    priority: Literal["low", "medium", "high"] | None = None
     estimated_minutes: int | None = Field(default=None, ge=1)
     deadline: datetime | None = None
     position: int | None = Field(default=None, ge=1)

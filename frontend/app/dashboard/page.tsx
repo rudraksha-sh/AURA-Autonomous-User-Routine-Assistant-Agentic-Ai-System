@@ -28,6 +28,8 @@ import { clearAccessToken } from "@/services/auth-storage";
 import { getGoals } from "@/services/goals";
 import type { User } from "@/types/auth";
 import type { Goal } from "@/types/goal";
+import { getTasks, TaskApiError, updateTask } from "@/services/tasks";
+import type { Task } from "@/types/task";
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -247,10 +249,30 @@ export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = React.useState<User | null>(null);
   const [goals, setGoals] = React.useState<Goal[]>([]);
+  const [tasks, setTasks] = React.useState<Task[]>([]);
+  const [tasksLoading, setTasksLoading] = React.useState(true);
+  const [tasksError, setTasksError] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [goalsLoading, setGoalsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [goalsError, setGoalsError] = React.useState<string | null>(null);
+
+  const loadTasks = React.useCallback(async () => {
+    setTasksLoading(true);
+    setTasksError(null);
+    try {
+      setTasks(await getTasks());
+    } catch (err) {
+      if (err instanceof TaskApiError && err.status === 401) {
+        clearAccessToken();
+        router.replace("/login");
+        return;
+      }
+      setTasksError(err instanceof Error ? err.message : "Unable to load your tasks.");
+    } finally {
+      setTasksLoading(false);
+    }
+  }, [router]);
 
   const loadGoals = React.useCallback(async () => {
     setGoalsLoading(true);
@@ -315,11 +337,12 @@ export default function DashboardPage() {
     }
 
     loadDashboard();
+    void Promise.resolve().then(loadTasks);
 
     return () => {
       isMounted = false;
     };
-  }, [router]);
+  }, [router, loadTasks]);
 
   const activeGoals = goals.filter(
     (goal) => goal.status.toLowerCase() === "active"
@@ -345,6 +368,39 @@ export default function DashboardPage() {
         new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime()
     )
     .slice(0, 4);
+
+  const upcomingTaskDeadlines = tasks
+    .filter((task) => task.status.toLowerCase() !== "completed" && task.deadline && new Date(task.deadline).getTime() >= new Date().setHours(0, 0, 0, 0))
+    .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
+    .slice(0, 4);
+  const pendingTaskCount = tasks.filter((task) => task.status.toLowerCase() !== "completed").length;
+  const completedTaskCount = tasks.length - pendingTaskCount;
+
+  const todaysTasks = tasks.filter((task) => {
+    if (!task.deadline) return false;
+    const deadline = new Date(task.deadline);
+    const today = new Date();
+    return !Number.isNaN(deadline.getTime()) &&
+      deadline.getFullYear() === today.getFullYear() &&
+      deadline.getMonth() === today.getMonth() &&
+      deadline.getDate() === today.getDate();
+  });
+
+  async function toggleTask(task: Task) {
+    try {
+      const updated = await updateTask(task.id, {
+        status: task.status.toLowerCase() === "completed" ? "pending" : "completed",
+      });
+      setTasks((current) => current.map((item) => item.id === task.id ? updated : item));
+    } catch (err) {
+      if (err instanceof TaskApiError && err.status === 401) {
+        clearAccessToken();
+        router.replace("/login");
+        return;
+      }
+      setTasksError(err instanceof Error ? err.message : "Unable to update the task.");
+    }
+  }
 
   const recentGoals = [...goals]
     .sort(
@@ -663,7 +719,7 @@ export default function DashboardPage() {
             </section>
 
             {/* Progress panel */}
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <section id="progress" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
               <SectionHeading
                 eyebrow="Keep moving"
                 title="Goal completion"
@@ -782,7 +838,7 @@ export default function DashboardPage() {
               <SectionHeading
                 eyebrow="Plan ahead"
                 title="Upcoming deadlines"
-                description="Active goals with the nearest deadlines."
+                description="Upcoming deadlines for active goals and tasks."
                 action={
                   <span className="flex size-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                     <CalendarDays aria-hidden="true" className="size-5" />
@@ -791,13 +847,18 @@ export default function DashboardPage() {
               />
 
               <div className="mt-5">
-                {goalsLoading ? (
+                {goalsLoading || tasksLoading ? (
                   <div className="h-36 animate-pulse rounded-xl bg-slate-100" />
                 ) : goalsError ? (
                   <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
                     Deadlines are unavailable because goals could not be loaded.
                   </p>
-                ) : upcomingGoals.length === 0 ? (
+                ) : tasksError && upcomingGoals.length === 0 ? (
+                  <div role="alert" className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
+                    <p>Task deadlines are unavailable. {tasksError}</p>
+                    <button type="button" onClick={loadTasks} className="mt-2 font-semibold underline">Retry</button>
+                  </div>
+                ) : upcomingGoals.length === 0 && upcomingTaskDeadlines.length === 0 ? (
                   <EmptyState
                     icon={CalendarDays}
                     title="No upcoming deadlines"
@@ -817,6 +878,7 @@ export default function DashboardPage() {
                   />
                 ) : (
                   <div className="space-y-1">
+                    {tasksError && <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">Task deadlines unavailable. <button type="button" onClick={loadTasks} className="font-semibold underline">Retry</button></p>}
                     {upcomingGoals.map((goal) => (
                       <Link
                         key={goal.id}
@@ -841,6 +903,22 @@ export default function DashboardPage() {
                         </span>
                       </Link>
                     ))}
+                    {upcomingTaskDeadlines.map((task) => (
+                      <Link
+                        key={`task-${task.id}`}
+                        href="/tasks"
+                        className="flex items-center gap-3 rounded-xl px-3 py-3 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                      >
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+                          <ListTodo aria-hidden="true" className="size-5" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold text-slate-900">{task.title}</span>
+                          <span className="mt-1 block text-xs text-slate-500">{goals.find((goal) => goal.id === task.goal_id)?.title ?? "Goal"} · Due {formatShortDate(task.deadline)}</span>
+                        </span>
+                        <span className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold capitalize ring-1 ring-inset ${getPriorityClass(task.priority)}`}>{task.priority}</span>
+                      </Link>
+                    ))}
                   </div>
                 )}
               </div>
@@ -850,29 +928,16 @@ export default function DashboardPage() {
               <SectionHeading
                 eyebrow="Stay organized"
                 title="Today's routine"
-                description="Your daily tasks will live here."
+                description={tasksLoading ? "Loading task counts..." : tasksError ? "Task counts are unavailable." : `${pendingTaskCount} pending · ${completedTaskCount} completed · ${todaysTasks.length} due today.`}
                 action={
-                  <span className="flex size-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+                  <Link href="/tasks" aria-label="Manage tasks" className="flex size-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600 hover:bg-violet-100">
                     <ListTodo aria-hidden="true" className="size-5" />
-                  </span>
+                  </Link>
                 }
               />
 
               <div className="mt-5">
-                <EmptyState
-                  icon={ListTodo}
-                  title="Your routine planner is ready"
-                  description="A routine or task service is not connected to this dashboard yet. Your goal data is available above; daily task counts are not fabricated."
-                  action={
-                    <Link
-                      href="/goals"
-                      className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
-                    >
-                      <Plus aria-hidden="true" className="size-4" />
-                      Plan with a goal
-                    </Link>
-                  }
-                />
+                {tasksLoading ? <div role="status" className="space-y-3"><span className="sr-only">Loading today&apos;s tasks...</span>{[1, 2].map((item) => <div key={item} className="h-16 animate-pulse rounded-xl bg-slate-100" />)}</div> : tasksError ? <div role="alert" className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800"><p>{tasksError}</p><button type="button" onClick={loadTasks} className="mt-2 inline-flex items-center gap-2 font-semibold hover:underline"><RefreshCw aria-hidden="true" className="size-4"/>Retry</button></div> : todaysTasks.length === 0 ? <EmptyState icon={ListTodo} title="Nothing scheduled for today" description={tasks.length ? "Your saved tasks have no deadline today." : "Add tasks to your goals and set today's date to see them here."} action={<Link href="/tasks" className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"><Plus aria-hidden="true" className="size-4" />Manage tasks</Link>} /> : <div className="space-y-2">{todaysTasks.slice(0, 5).map((task) => <div key={task.id} className="flex items-center gap-3 rounded-xl border border-slate-200 p-3"><button type="button" onClick={() => void toggleTask(task)} aria-label={`${task.status.toLowerCase() === "completed" ? "Mark incomplete" : "Complete"}: ${task.title}`} className="flex size-9 shrink-0 items-center justify-center rounded-lg text-blue-600 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600">{task.status.toLowerCase() === "completed" ? <CheckCircle2 aria-hidden="true" className="size-5"/> : <span aria-hidden="true" className="size-4 rounded-full border-2 border-slate-300"/>}</button><div className="min-w-0 flex-1"><p className={`truncate text-sm font-semibold ${task.status.toLowerCase() === "completed" ? "text-slate-400 line-through" : "text-slate-900"}`}>{task.title}</p><p className="text-xs text-slate-500">{goals.find((goal) => goal.id === task.goal_id)?.title ?? "Goal"}</p></div></div>)}<Link href="/tasks" className="inline-flex items-center gap-1 pt-2 text-sm font-semibold text-blue-600 hover:text-blue-700">Manage tasks <ArrowRight aria-hidden="true" className="size-4"/></Link></div>}
               </div>
             </section>
           </div>
@@ -1005,7 +1070,7 @@ export default function DashboardPage() {
 
               <div className="mt-5 space-y-3">
                 <Link
-                  href="/goals"
+                  href="/planner"
                   className="group flex items-center gap-3 rounded-xl border border-slate-200 p-3 transition hover:border-blue-200 hover:bg-blue-50/50"
                 >
                   <span className="flex size-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
@@ -1013,10 +1078,10 @@ export default function DashboardPage() {
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-semibold text-slate-900">
-                      Manage goals
+                      Plan with a goal
                     </span>
                     <span className="mt-1 block text-xs text-slate-500">
-                      Add or review goals
+                      Turn a goal into a task
                     </span>
                   </span>
                   <ArrowRight
@@ -1026,7 +1091,7 @@ export default function DashboardPage() {
                 </Link>
 
                 <Link
-                  href="/goals"
+                  href="/dashboard#progress"
                   className="group flex items-center gap-3 rounded-xl border border-slate-200 p-3 transition hover:border-blue-200 hover:bg-blue-50/50"
                 >
                   <span className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">

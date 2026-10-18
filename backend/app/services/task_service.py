@@ -64,6 +64,16 @@ def get_goal_tasks(
     return list(db.scalars(statement).all())
 
 
+def get_user_tasks(db: Session, user_id: int) -> list[Task]:
+    statement = (
+        select(Task)
+        .join(Goal, Task.goal_id == Goal.id)
+        .where(Goal.user_id == user_id)
+        .order_by(Task.deadline, Task.position, Task.created_at)
+    )
+    return list(db.scalars(statement).all())
+
+
 def get_task(
     db: Session,
     user_id: int,

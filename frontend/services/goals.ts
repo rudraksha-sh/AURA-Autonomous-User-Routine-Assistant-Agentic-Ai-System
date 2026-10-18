@@ -1,4 +1,5 @@
 import { getAccessToken } from "@/services/auth-storage";
+import { ApiError } from "@/services/auth";
 import type {
   CreateGoalInput,
   Goal,
@@ -37,7 +38,7 @@ async function fetchJson<T>(
         ? JSON.stringify(errorBody.detail)
         : `Request failed with status ${response.status}`;
 
-    throw new Error(message);
+    throw new ApiError(message, response.status);
   }
 
   if (response.status === 204) {
