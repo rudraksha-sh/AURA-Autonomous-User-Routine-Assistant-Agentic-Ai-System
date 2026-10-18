@@ -1,9 +1,15 @@
 const ACCESS_TOKEN_KEY = "aura_access_token";
 const SESSION_EXPIRED_EVENT = "aura:session-expired";
+const AUTH_CHANGED_EVENT = "aura:auth-changed";
+
+function notifyAuthChanged() {
+  window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
+}
 
 export function setAccessToken(token: string): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(ACCESS_TOKEN_KEY, token);
+  notifyAuthChanged();
 }
 
 export function getAccessToken(): string | null {
@@ -14,6 +20,7 @@ export function getAccessToken(): string | null {
 export function clearAccessToken(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(ACCESS_TOKEN_KEY);
+  notifyAuthChanged();
 }
 
 export function expireAccessToken(): void {

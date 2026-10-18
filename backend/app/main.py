@@ -22,6 +22,7 @@ from app.api.routes.integrations import router as integrations_router
 from app.api.routes.planner import router as planner_router
 from app.api.routes.daily_planner import router as daily_planner_router
 from app.api.routes.assistant import router as assistant_router
+from app.api.routes.profile import router as profile_router
 from app.db.session import Base, engine
 # Register model tables before creating the local SQLite development schema.
 from app import models
@@ -73,6 +74,7 @@ app.include_router(
     auth_router,
     prefix="/api",
 )
+app.include_router(profile_router, prefix="/api")
 
 app.include_router(integrations_router)
 

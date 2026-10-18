@@ -9,6 +9,7 @@ import {
   ListTodo,
   Plus,
   Sparkles,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 
@@ -23,6 +24,7 @@ const navigationItems: NavigationItem[] = [
   { href: "/goals", icon: Flag, label: "Goals" },
   { href: "/tasks", icon: ListTodo, label: "Tasks" },
   { href: "/planner", icon: CalendarClock, label: "Planner" },
+  { href: "/settings", icon: Settings, label: "Settings" },
 ];
 
 function NavigationLink({ href, icon: Icon, label, isActive }: NavigationItem & { isActive: boolean }) {

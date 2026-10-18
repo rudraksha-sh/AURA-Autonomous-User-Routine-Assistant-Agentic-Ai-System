@@ -11,6 +11,8 @@ class UserResponse(BaseModel):
     id: int
     email: EmailStr
     name: str
+    role: str = "user"
+    profile_photo_available: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 

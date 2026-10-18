@@ -1,4 +1,6 @@
-from pydantic import model_validator
+from typing import Literal
+
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -8,8 +10,10 @@ class Settings(BaseSettings):
 
     database_url: str
 
-    openrouter_api_key: str
+    openrouter_api_key: str = ""
     ai_model: str = "openai/gpt-4o-mini"
+    ai_provider: Literal["openrouter", "disabled"] = "openrouter"
+    ai_timeout_seconds: int = Field(default=15, ge=1, le=60)
 
     jwt_secret_key: str
     jwt_algorithm: str = "HS256"

@@ -11,6 +11,8 @@ env/
 
 # Local development databases
 backend/*.db
+backend/sample_data/*.db
+backend/private_uploads/
 
 # Environment variables
 .env

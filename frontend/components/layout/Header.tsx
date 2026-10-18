@@ -1,10 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { LogOut, UserRound } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
+import Link from "next/link";
 
 import { clearAccessToken } from "@/services/auth-storage";
 import { logout } from "@/services/auth";
+import { ProfileAvatar } from "@/components/layout/ProfileAvatar";
 
 type HeaderProps = {
   userName: string;
@@ -31,17 +33,16 @@ export function Header({ userName, title = "Dashboard" }: HeaderProps) {
 
       <div className="flex items-center gap-2 sm:gap-3">
         <div className="flex min-w-0 items-center gap-2 rounded-xl py-1 pl-1 pr-2 sm:gap-3 sm:pr-3">
-          <span
-            aria-hidden="true"
-            className="flex size-9 items-center justify-center rounded-lg bg-slate-100 text-slate-600"
-          >
-            <UserRound className="size-5" />
-          </span>
+          <ProfileAvatar />
 
           <span className="hidden max-w-40 truncate text-sm font-medium text-slate-700 sm:inline">
             {userName}
           </span>
         </div>
+
+        <Link href="/settings" aria-label="Settings" title="Settings" className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">
+          <Settings aria-hidden="true" className="size-4" />
+        </Link>
 
         <button
           type="button"

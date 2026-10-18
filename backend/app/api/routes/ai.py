@@ -7,7 +7,8 @@ from app.core.rate_limit_dependencies import (
 )
 from app.core.security import get_current_user_id
 from app.db.session import get_db
-from app.schemas.ai import AIPlanRequest, GoalPlan
+from app.schemas.ai import AIPlanRequest, AIProviderStatus, GoalPlan
+from app.agents.planner.service import provider_status
 from app.services.ai_service import create_goal_plan
 
 
@@ -15,6 +16,14 @@ router = APIRouter(
     prefix="/api/ai",
     tags=["AI"],
 )
+
+
+@router.get("/status", response_model=AIProviderStatus)
+def get_ai_status(
+    user_id: int = Depends(get_current_user_id),
+):
+    # The dependency verifies the user's session; no provider credentials are returned.
+    return provider_status()
 
 
 @router.post(

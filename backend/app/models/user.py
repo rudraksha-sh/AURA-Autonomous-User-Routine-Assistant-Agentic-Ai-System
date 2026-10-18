@@ -33,6 +33,12 @@ class User(Base):
         nullable=False,
     )
 
+    role: Mapped[str] = mapped_column(String(20), nullable=False, default="user", server_default="user")
+
+    profile_photo_filename: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    theme_preference: Mapped[str] = mapped_column(String(10), nullable=False, default="system", server_default="system")
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
