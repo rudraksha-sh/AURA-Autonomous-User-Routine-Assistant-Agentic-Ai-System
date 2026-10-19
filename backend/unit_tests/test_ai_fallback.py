@@ -43,6 +43,16 @@ def test_ai_endpoint_uses_deterministic_fallback_and_persists_real_records(tmp_p
             assert status_response.json() == {
                 "provider": "openrouter", "configured": False, "fallback_available": True,
             }
+            assert client.get("/api/profile/ai-planning", headers=headers).json() == {"use_ai_planning": True}
+            calls = []
+            monkeypatch.setattr(planner_service, "_load_provider", lambda: calls.append("provider") or None)
+            preference = client.put("/api/profile/ai-planning", headers=headers, json={"use_ai_planning": False})
+            assert preference.status_code == 200
+            headers = {"Authorization": f"Bearer {preference.json()['access_token']}"}
+            disabled_plan = client.post("/api/ai/plan", headers=headers, json={"goal": "Plan without AI"})
+            assert disabled_plan.status_code == 201
+            assert disabled_plan.json()["generation_mode"] == "rule_based"
+            assert calls == []
             assert client.post("/api/ai/plan", headers=headers, json={"goal": "   "}).status_code == 422
             created = client.post("/api/ai/plan", headers=headers, json={"goal": "Study machine learning"})
             assert created.status_code == 201
@@ -53,15 +63,15 @@ def test_ai_endpoint_uses_deterministic_fallback_and_persists_real_records(tmp_p
 
             goals = client.get("/api/goals", headers=headers)
             assert goals.status_code == 200
-            assert len(goals.json()) == 1
-            goal_id = goals.json()[0]["id"]
+            assert len(goals.json()) == 2
+            goal_id = goals.json()[-1]["id"]
             tasks = client.get(f"/api/tasks/goals/{goal_id}/tasks", headers=headers)
             assert tasks.status_code == 200
             assert len(tasks.json()) == 5
             assert {task["goal_id"] for task in tasks.json()} == {goal_id}
 
             with Session(engine) as fresh_session:
-                assert fresh_session.query(AgentRun).filter_by(user_id=goals.json()[0]["user_id"], agent_type="planner", status="completed").count() == 1
+                assert fresh_session.query(AgentRun).filter_by(user_id=goals.json()[0]["user_id"], agent_type="planner", status="completed").count() == 2
                 assert fresh_session.query(Goal).filter_by(id=goal_id).count() == 1
                 assert fresh_session.query(Task).filter_by(goal_id=goal_id).count() == 5
     finally:

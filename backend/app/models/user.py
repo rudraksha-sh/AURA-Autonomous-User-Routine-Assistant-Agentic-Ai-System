@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, String
+from sqlalchemy import Boolean, DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -38,6 +38,14 @@ class User(Base):
     profile_photo_filename: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     theme_preference: Mapped[str] = mapped_column(String(10), nullable=False, default="system", server_default="system")
+
+    accent_color: Mapped[str] = mapped_column(String(20), nullable=False, default="blue", server_default="blue")
+
+    density: Mapped[str] = mapped_column(String(20), nullable=False, default="comfortable", server_default="comfortable")
+
+    font_size: Mapped[str] = mapped_column(String(20), nullable=False, default="medium", server_default="medium")
+
+    use_ai_planning: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="1")
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

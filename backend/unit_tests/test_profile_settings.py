@@ -32,8 +32,8 @@ def test_profile_access_update_and_admin_photo_controls(tmp_path, monkeypatch):
                 admin.role = "admin"
                 db.commit()
 
-            def auth(email):
-                result = client.post("/api/auth/login", json={"email": email, "password": "SafePassword123!"})
+            def auth(email, password="SafePassword123!"):
+                result = client.post("/api/auth/login", json={"email": email, "password": password})
                 return {"Authorization": f"Bearer {result.json()['access_token']}"}
 
             regular_headers = auth("regular@example.com")
@@ -41,6 +41,16 @@ def test_profile_access_update_and_admin_photo_controls(tmp_path, monkeypatch):
             assert client.get("/api/profile", headers=regular_headers).json()["role"] == "user"
             assert client.get("/api/profile/theme", headers=regular_headers).json() == {"theme": "system"}
             assert client.get("/api/profile/theme", headers=admin_headers).json() == {"theme": "system"}
+            assert client.get("/api/profile/appearance", headers=regular_headers).json() == {
+                "theme": "system", "accent_color": "blue", "density": "comfortable", "font_size": "medium",
+            }
+            appearance = client.put("/api/profile/appearance", headers=regular_headers, json={
+                "theme": "dark", "accent_color": "violet", "density": "compact", "font_size": "large",
+            })
+            assert appearance.status_code == 200
+            assert {key: appearance.json()[key] for key in ("theme", "accent_color", "density", "font_size")} == {"theme": "dark", "accent_color": "violet", "density": "compact", "font_size": "large"}
+            regular_headers = {"Authorization": f"Bearer {appearance.json()['access_token']}"}
+            assert client.put("/api/profile/appearance", headers=regular_headers, json={"theme": "dark", "accent_color": "ultraviolet", "density": "compact", "font_size": "large"}).status_code == 422
             assert client.patch("/api/profile", headers=regular_headers, json={"name": "", "email": "not-an-email"}).status_code == 422
             assert client.put("/api/profile/theme", headers=regular_headers, json={"theme": "sepia"}).status_code == 422
             saved_theme = client.put("/api/profile/theme", headers=regular_headers, json={"theme": "dark"})
@@ -55,6 +65,15 @@ def test_profile_access_update_and_admin_photo_controls(tmp_path, monkeypatch):
             assert persisted_profile.status_code == 200
             assert persisted_profile.json()["name"] == "Updated"
             assert persisted_profile.json()["email"] == "updated@example.com"
+            old_password_session = regular_headers.copy()
+            bad_password = client.put("/api/profile/password", headers=regular_headers, json={"current_password": "WrongPassword123!", "new_password": "NewSafePassword456!"})
+            assert bad_password.status_code == 400
+            changed_password = client.put("/api/profile/password", headers=regular_headers, json={"current_password": "SafePassword123!", "new_password": "NewSafePassword456!"})
+            assert changed_password.status_code == 200
+            assert client.get("/api/profile", headers=old_password_session).status_code == 401
+            regular_headers = {"Authorization": f"Bearer {changed_password.json()['access_token']}"}
+            assert client.get("/api/profile", headers=regular_headers).status_code == 200
+            assert client.post("/api/auth/login", json={"email": "updated@example.com", "password": "NewSafePassword456!"}).status_code == 200
             assert client.post("/api/profile/photo", headers=regular_headers, files={"file": ("photo.png", b"\x89PNG\r\n\x1a\nimage", "image/png")}).status_code == 403
 
             invalid = client.post("/api/profile/photo", headers=admin_headers, files={"file": ("fake.png", b"not an image", "image/png")})
@@ -70,7 +89,7 @@ def test_profile_access_update_and_admin_photo_controls(tmp_path, monkeypatch):
             assert private_photo.headers["cache-control"] == "private, no-store"
             assert client.get("/api/profile/photo", headers=regular_headers).status_code == 404
             client.post("/api/auth/logout", headers=regular_headers)
-            relogin_headers = auth("updated@example.com")
+            relogin_headers = auth("updated@example.com", "NewSafePassword456!")
             assert client.get("/api/profile/theme", headers=relogin_headers).json() == {"theme": "dark"}
             removed = client.delete("/api/profile/photo", headers=admin_headers)
             assert removed.status_code == 200

@@ -69,6 +69,7 @@ def test_created_at_defaults_work_with_existing_sqlite_schema(tmp_path):
                     goal_id INTEGER NOT NULL,
                     title VARCHAR(255) NOT NULL,
                     description TEXT,
+                    notes TEXT,
                     status VARCHAR(50) NOT NULL,
                     priority VARCHAR(20) NOT NULL,
                     estimated_minutes INTEGER,

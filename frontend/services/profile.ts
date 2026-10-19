@@ -1,7 +1,7 @@
 import { ApiError } from "@/services/auth";
 import { expireAccessToken, getAccessToken, setAccessToken } from "@/services/auth-storage";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_BASE_URL = "";
 
 export interface Profile {
   id: number;
@@ -12,6 +12,12 @@ export interface Profile {
 }
 
 export type ThemePreference = "light" | "dark" | "system";
+export type AppearancePreferences = {
+  theme: ThemePreference;
+  accent_color: "blue" | "violet" | "emerald" | "rose" | "amber";
+  density: "comfortable" | "compact";
+  font_size: "small" | "medium" | "large";
+};
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getAccessToken();
@@ -30,6 +36,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 export function fetchProfile() { return request<Profile>(""); }
 export function fetchThemePreference() { return request<{ theme: ThemePreference }>("/theme"); }
+export function fetchAppearancePreferences() { return request<AppearancePreferences>("/appearance"); }
+export function saveAppearancePreferences(data: AppearancePreferences) {
+  return request<AppearancePreferences & { access_token: string }>("/appearance", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then((result) => {
+    setAccessToken(result.access_token);
+    return { theme: result.theme, accent_color: result.accent_color, density: result.density, font_size: result.font_size };
+  });
+}
+export async function changePassword(data: { current_password: string; new_password: string }) {
+  const result = await request<{ access_token: string }>("/password", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+  setAccessToken(result.access_token);
+}
 export function saveProfile(data: Pick<Profile, "name" | "email">) {
   return requestMutation("", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
 }

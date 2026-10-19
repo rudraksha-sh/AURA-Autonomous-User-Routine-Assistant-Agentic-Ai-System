@@ -80,3 +80,17 @@ export type WhatIfResult = {
   potential_deadline_conflicts: string[];
   explanations: string[];
 };
+
+export type CalendarBusyBlock = {
+  id: string;
+  title: string;
+  start_at: string;
+  end_at: string;
+  all_day: boolean;
+};
+
+export type CalendarEventsResponse = {
+  calendar_synced: boolean;
+  busy_blocks: CalendarBusyBlock[];
+  message: string | null;
+};

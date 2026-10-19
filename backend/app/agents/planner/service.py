@@ -89,9 +89,9 @@ def _rule_based_plan(user_goal: str) -> GoalPlan:
     )
 
 
-def generate_goal_plan(user_goal: str) -> GoalPlan:
+def generate_goal_plan(user_goal: str, *, use_ai: bool = True) -> GoalPlan:
     try:
-        provider = _load_provider()
+        provider = _load_provider() if use_ai else None
         if provider is None:
             return _rule_based_plan(user_goal)
         plan = provider.generate(user_goal)

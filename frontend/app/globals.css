@@ -21,6 +21,25 @@ body {
 }
 
 html.dark { color-scheme: dark; }
+html[data-aura-font-size="small"] { font-size: 14px; }
+html[data-aura-font-size="medium"] { font-size: 16px; }
+html[data-aura-font-size="large"] { font-size: 18px; }
+html[data-aura-density="compact"] .p-5 { padding: 1rem; }
+html[data-aura-density="compact"] .p-6 { padding: 1.25rem; }
+html[data-aura-density="compact"] .gap-5 { gap: 1rem; }
+html[data-aura-density="compact"] .gap-6 { gap: 1.25rem; }
+html[data-aura-accent="violet"] .text-blue-600 { color: #7c3aed; }
+html[data-aura-accent="violet"] .bg-blue-600 { background-color: #7c3aed; }
+html[data-aura-accent="violet"] .border-blue-500 { border-color: #8b5cf6; }
+html[data-aura-accent="emerald"] .text-blue-600 { color: #059669; }
+html[data-aura-accent="emerald"] .bg-blue-600 { background-color: #059669; }
+html[data-aura-accent="emerald"] .border-blue-500 { border-color: #10b981; }
+html[data-aura-accent="rose"] .text-blue-600 { color: #e11d48; }
+html[data-aura-accent="rose"] .bg-blue-600 { background-color: #e11d48; }
+html[data-aura-accent="rose"] .border-blue-500 { border-color: #f43f5e; }
+html[data-aura-accent="amber"] .text-blue-600 { color: #d97706; }
+html[data-aura-accent="amber"] .bg-blue-600 { background-color: #d97706; }
+html[data-aura-accent="amber"] .border-blue-500 { border-color: #f59e0b; }
 .dark body { background: #0b1220; color: #e2e8f0; }
 .dark .bg-white { background-color: #111827; }
 .dark .bg-slate-50 { background-color: #0b1220; }

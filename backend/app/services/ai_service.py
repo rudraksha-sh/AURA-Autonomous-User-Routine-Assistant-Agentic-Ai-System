@@ -12,9 +12,11 @@ def create_goal_plan(
     db: Session,
     user_id: int,
     user_goal: str,
+    *,
+    use_ai: bool = True,
 ):
     # AI generation happens before database writes.
-    plan = generate_goal_plan(user_goal)
+    plan = generate_goal_plan(user_goal, use_ai=use_ai)
 
     try:
         goal = Goal(

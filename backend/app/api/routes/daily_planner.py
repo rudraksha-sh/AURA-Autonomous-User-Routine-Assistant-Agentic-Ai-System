@@ -1,6 +1,6 @@
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.security import get_current_user_id
@@ -16,7 +16,10 @@ from app.schemas.daily_planner import (
     WhatIfRequest,
     WhatIfResponse,
 )
+from app.schemas.calendar import CalendarBusyResponse
+from app.services.calendar_service import get_calendar_busy_blocks
 from app.services.daily_planner_service import (
+    delete_daily_schedule,
     get_preferences,
     preview_daily_schedule,
     read_daily_schedule,
@@ -28,6 +31,22 @@ from app.services.what_if_service import simulate_daily_schedule
 
 
 router = APIRouter(prefix="/api/planner", tags=["Daily Planner"])
+
+
+@router.get("/calendar/events", response_model=CalendarBusyResponse)
+def calendar_events(
+    start_at: datetime = Query(),
+    end_at: datetime = Query(),
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    if start_at.tzinfo is None or start_at.utcoffset() is None or end_at.tzinfo is None or end_at.utcoffset() is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Calendar range must include time zones")
+    start_utc = start_at.astimezone(timezone.utc)
+    end_utc = end_at.astimezone(timezone.utc)
+    if end_utc <= start_utc or end_utc - start_utc > timedelta(days=8):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Calendar range must be positive and no longer than eight days")
+    return get_calendar_busy_blocks(db=db, user_id=user_id, start_at=start_at, end_at=end_at)
 
 
 @router.get("/preferences", response_model=PlanningPreferencesResponse)
@@ -75,6 +94,16 @@ def get_schedule(
     db: Session = Depends(get_db),
 ):
     return {"schedule": read_daily_schedule(db, user_id, target_date)}
+
+
+@router.delete("/schedules/day/{target_date}", status_code=status.HTTP_204_NO_CONTENT)
+def clear_schedule(
+    target_date: date,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    delete_daily_schedule(db, user_id, target_date)
+    return None
 
 
 @router.post("/schedules", response_model=DailyScheduleResponse, status_code=status.HTTP_201_CREATED)

@@ -1,7 +1,7 @@
 from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -305,3 +305,16 @@ def read_daily_schedule(db: Session, user_id: int, target_date: date) -> DailySc
         DailySchedule.target_date == target_date,
     ).order_by(DailySchedule.created_at.desc(), DailySchedule.id.desc()))
     return _schedule_response(db, schedule) if schedule else None
+
+
+def delete_daily_schedule(db: Session, user_id: int, target_date: date) -> None:
+    schedule_ids = select(DailySchedule.id).where(
+        DailySchedule.user_id == user_id,
+        DailySchedule.target_date == target_date,
+    )
+    db.execute(delete(ScheduleEntry).where(ScheduleEntry.schedule_id.in_(schedule_ids)))
+    db.execute(delete(DailySchedule).where(
+        DailySchedule.user_id == user_id,
+        DailySchedule.target_date == target_date,
+    ))
+    db.commit()

@@ -17,14 +17,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column("agent_runs", sa.Column("idempotency_key", sa.String(length=36), nullable=True))
-    op.create_unique_constraint(
-        "uq_agent_runs_user_idempotency",
-        "agent_runs",
-        ["user_id", "idempotency_key"],
-    )
+    with op.batch_alter_table("agent_runs") as batch_op:
+        batch_op.add_column(sa.Column("idempotency_key", sa.String(length=36), nullable=True))
+        batch_op.create_unique_constraint("uq_agent_runs_user_idempotency", ["user_id", "idempotency_key"])
 
 
 def downgrade() -> None:
-    op.drop_constraint("uq_agent_runs_user_idempotency", "agent_runs", type_="unique")
-    op.drop_column("agent_runs", "idempotency_key")
+    with op.batch_alter_table("agent_runs") as batch_op:
+        batch_op.drop_constraint("uq_agent_runs_user_idempotency", type_="unique")
+        batch_op.drop_column("idempotency_key")

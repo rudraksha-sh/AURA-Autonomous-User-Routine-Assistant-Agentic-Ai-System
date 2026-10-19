@@ -1,8 +1,8 @@
 import { expireAccessToken, getAccessToken } from "@/services/auth-storage";
 import type { Task } from "@/types/task";
-import type { DailySchedule, PlanPreview, PlanningPreferences, ProposedPlanTask, ScheduleEntryProposal, SchedulePreview, WhatIfRequest, WhatIfResult } from "@/types/planner";
+import type { CalendarEventsResponse, DailySchedule, PlanPreview, PlanningPreferences, ProposedPlanTask, ScheduleEntryProposal, SchedulePreview, WhatIfRequest, WhatIfResult } from "@/types/planner";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_BASE_URL = "";
 
 export class PlannerApiError extends Error {
   constructor(message: string, public readonly status: number) {
@@ -33,6 +33,7 @@ async function request<T>(path: string, body?: unknown, method = "POST"): Promis
     const detail = payload && typeof payload === "object" && "detail" in payload ? String(payload.detail) : `Request failed (${response.status}).`;
     throw new PlannerApiError(detail, response.status);
   }
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
 
@@ -61,6 +62,10 @@ export async function getDailySchedule(targetDate: string): Promise<DailySchedul
   return response.schedule;
 }
 
+export function deleteDailySchedule(targetDate: string): Promise<void> {
+  return request(`/api/planner/schedules/day/${targetDate}`, undefined, "DELETE");
+}
+
 export function approveDailySchedule(targetDate: string, idempotencyKey: string, entries: ScheduleEntryProposal[]): Promise<DailySchedule> {
   return request("/api/planner/schedules", {
     target_date: targetDate,
@@ -71,4 +76,9 @@ export function approveDailySchedule(targetDate: string, idempotencyKey: string,
 
 export function simulateDailySchedule(scenario: WhatIfRequest): Promise<WhatIfResult> {
   return request("/api/planner/schedules/what-if", scenario);
+}
+
+export function getCalendarEvents(startAt: string, endAt: string): Promise<CalendarEventsResponse> {
+  const query = new URLSearchParams({ start_at: startAt, end_at: endAt });
+  return request(`/api/planner/calendar/events?${query.toString()}`, undefined, "GET");
 }

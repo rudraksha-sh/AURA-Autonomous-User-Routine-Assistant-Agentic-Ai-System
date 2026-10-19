@@ -73,6 +73,8 @@ class Integration(Base):
         onupdate=func.now(),
     )
 
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     user = relationship(
         "User",
         back_populates="integrations",

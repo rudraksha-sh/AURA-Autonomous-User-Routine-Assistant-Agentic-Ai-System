@@ -1,7 +1,7 @@
 import { expireAccessToken, getAccessToken } from "@/services/auth-storage";
 import type { CreateTaskInput, Task, TaskActivity, TaskBulkActionResult, TaskSubtask, UpdateTaskInput } from "@/types/task";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_BASE_URL = "";
 
 export class TaskApiError extends Error {
   constructor(message: string, public readonly status: number) {

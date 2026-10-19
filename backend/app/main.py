@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from sqlalchemy import inspect, text
 
 from app.api.routes.tasks import router as tasks_router
 
@@ -23,6 +24,7 @@ from app.api.routes.planner import router as planner_router
 from app.api.routes.daily_planner import router as daily_planner_router
 from app.api.routes.assistant import router as assistant_router
 from app.api.routes.profile import router as profile_router
+from app.api.routes.notifications import router as notifications_router
 from app.db.session import Base, engine
 # Register model tables before creating the local SQLite development schema.
 from app import models
@@ -32,6 +34,25 @@ from app import models
 async def lifespan(_: FastAPI):
     if settings.environment == "development" and engine.dialect.name == "sqlite":
         Base.metadata.create_all(bind=engine)
+        task_columns = {column["name"] for column in inspect(engine).get_columns("tasks")}
+        if "notes" not in task_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE tasks ADD COLUMN notes TEXT"))
+        user_columns = {column["name"] for column in inspect(engine).get_columns("users")}
+        appearance_columns = {
+            "accent_color": "VARCHAR(20) NOT NULL DEFAULT 'blue'",
+            "density": "VARCHAR(20) NOT NULL DEFAULT 'comfortable'",
+            "font_size": "VARCHAR(20) NOT NULL DEFAULT 'medium'",
+            "use_ai_planning": "BOOLEAN NOT NULL DEFAULT 1",
+        }
+        with engine.begin() as connection:
+            for column, definition in appearance_columns.items():
+                if column not in user_columns:
+                    connection.execute(text(f"ALTER TABLE users ADD COLUMN {column} {definition}"))
+        integration_columns = {column["name"] for column in inspect(engine).get_columns("integrations")}
+        if "last_synced_at" not in integration_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE integrations ADD COLUMN last_synced_at DATETIME"))
     yield
 
 configure_logging()
@@ -75,6 +96,7 @@ app.include_router(
     prefix="/api",
 )
 app.include_router(profile_router, prefix="/api")
+app.include_router(notifications_router)
 
 app.include_router(integrations_router)
 

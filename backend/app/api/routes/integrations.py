@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.responses import RedirectResponse
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.security import get_current_user_id
@@ -13,12 +14,31 @@ from app.integrations.google.oauth import (
     oauth_state_store,
 )
 from app.services.integration_service import upsert_google_integration
+from app.models.integration import Integration
+from app.schemas.integration import GoogleIntegrationStatus
 
 
 router = APIRouter(
     prefix="/api/integrations",
     tags=["Integrations"],
 )
+
+
+@router.get("/google/status", response_model=GoogleIntegrationStatus)
+def google_status(user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)):
+    integration = db.scalar(select(Integration).where(Integration.user_id == user_id, Integration.provider == "google"))
+    if integration is None:
+        return {"status": "disconnected", "scopes": [], "last_sync_at": None}
+    return {"status": "connected", "scopes": integration.scopes.split() if integration.scopes else [], "last_sync_at": integration.last_synced_at}
+
+
+@router.delete("/google", status_code=status.HTTP_204_NO_CONTENT)
+def disconnect_google(user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)):
+    integration = db.scalar(select(Integration).where(Integration.user_id == user_id, Integration.provider == "google"))
+    if integration is not None:
+        db.delete(integration)
+        db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/google/connect")

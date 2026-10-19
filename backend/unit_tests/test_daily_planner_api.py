@@ -66,6 +66,10 @@ def test_authenticated_daily_schedule_preview_approval_and_isolation(tmp_path):
         assert client.post("/api/planner/schedules", headers=owner, json=body).json() == approved.json()
         assert client.get("/api/planner/schedules/day/2026-10-19", headers=owner).json()["schedule"]["id"] == approved.json()["id"]
         assert client.get("/api/planner/schedules/day/2026-10-19", headers=other).json()["schedule"] is None
+        assert client.delete("/api/planner/schedules/day/2026-10-19", headers=other).status_code == 204
+        assert client.get("/api/planner/schedules/day/2026-10-19", headers=owner).json()["schedule"]["id"] == approved.json()["id"]
+        assert client.delete("/api/planner/schedules/day/2026-10-19", headers=owner).status_code == 204
+        assert client.get("/api/planner/schedules/day/2026-10-19", headers=owner).json()["schedule"] is None
         assert client.get("/api/tasks", headers=owner).json()[0]["status"] == "pending"
     finally:
         app.dependency_overrides.clear()
