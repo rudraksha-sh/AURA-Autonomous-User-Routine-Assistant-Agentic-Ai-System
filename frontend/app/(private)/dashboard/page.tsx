@@ -33,6 +33,7 @@ import { getTasks, TaskApiError, updateTask } from "@/services/tasks";
 import type { Task } from "@/types/task";
 import { getDailySchedule, getPlanningPreferences } from "@/services/planner";
 import type { DailySchedule } from "@/types/planner";
+import { CompletionInsights } from "@/components/dashboard/CompletionInsights";
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -127,6 +128,23 @@ function getStatusClass(status: string) {
 
 function getGoalHref(goal: Goal) {
   return `/goals/${goal.id}`;
+}
+
+function suggestedTaskScore(task: Task, goal: Goal | undefined, now: Date) {
+  const priority = task.priority.toLowerCase() === "high" ? 30 : task.priority.toLowerCase() === "medium" ? 20 : 10;
+  let urgency = 0;
+  if (task.deadline) {
+    const deadline = new Date(task.deadline);
+    if (!Number.isNaN(deadline.getTime())) {
+      const dueDay = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const days = Math.round((dueDay.getTime() - today.getTime()) / 86_400_000);
+      urgency = days < 0 ? 45 : days === 0 ? 40 : days <= 7 ? 25 : days <= 30 ? 15 : 5;
+    }
+  }
+  const quickWin = task.estimated_minutes && task.estimated_minutes <= 30 ? 10 : 0;
+  const goalPriority = goal?.priority.toLowerCase() === "high" ? 10 : goal?.priority.toLowerCase() === "medium" ? 5 : 0;
+  return Math.min(100, priority + urgency + quickWin + goalPriority);
 }
 
 function MetricCard({
@@ -266,12 +284,16 @@ export default function DashboardPage() {
   const [todaySchedule, setTodaySchedule] = React.useState<DailySchedule | null>(null);
   const [scheduleLoading, setScheduleLoading] = React.useState(true);
   const [scheduleError, setScheduleError] = React.useState<string | null>(null);
+  const [planningCapacity, setPlanningCapacity] = React.useState<number | null>(null);
+  const [actionBusy, setActionBusy] = React.useState(false);
+  const [actionError, setActionError] = React.useState<string | null>(null);
 
   const loadTodaySchedule = React.useCallback(async () => {
     setScheduleLoading(true);
     setScheduleError(null);
     try {
       const preferences = await getPlanningPreferences();
+      setPlanningCapacity(preferences.daily_capacity_minutes);
       const dateParts = new Intl.DateTimeFormat("en-CA", {
         timeZone: preferences.timezone_name,
         year: "numeric",
@@ -407,6 +429,13 @@ export default function DashboardPage() {
     .slice(0, 4);
   const pendingTaskCount = tasks.filter((task) => task.status.toLowerCase() !== "completed").length;
   const completedTaskCount = tasks.length - pendingTaskCount;
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const overdueTasks = tasks.filter((task) => task.status.toLowerCase() !== "completed" && task.deadline && new Date(task.deadline).getTime() < todayStart.getTime());
+  const plannedMinutes = todaySchedule
+    ? todaySchedule.entries.reduce((total, entry) => total + (tasks.find((task) => task.id === entry.task_id)?.status.toLowerCase() === "completed" ? 0 : entry.duration_minutes), 0)
+    : tasks.filter((task) => task.status.toLowerCase() !== "completed" && task.deadline && new Date(task.deadline).toDateString() === todayStart.toDateString()).reduce((total, task) => total + (task.estimated_minutes ?? 0), 0);
+  const dailyCapacity = todaySchedule?.capacity_minutes ?? planningCapacity ?? 0;
 
   const todaysTasks = tasks.filter((task) => {
     if (!task.deadline) return false;
@@ -434,6 +463,30 @@ export default function DashboardPage() {
         return;
       }
       setTasksError(err instanceof Error ? err.message : "Unable to update the task.");
+    }
+  }
+
+  const suggestedTask = tasks
+    .filter((task) => task.status.toLowerCase() !== "completed")
+    .sort((left, right) => suggestedTaskScore(right, goals.find((goal) => goal.id === right.goal_id), new Date()) - suggestedTaskScore(left, goals.find((goal) => goal.id === left.goal_id), new Date()))[0];
+
+  async function progressSuggestedTask() {
+    if (!suggestedTask || actionBusy) return;
+    const status = suggestedTask.status.toLowerCase() === "in_progress" ? "completed" : "in_progress";
+    setActionBusy(true);
+    setActionError(null);
+    try {
+      const updated = await updateTask(suggestedTask.id, { status });
+      setTasks((current) => current.map((task) => task.id === updated.id ? updated : task));
+    } catch (err) {
+      if (err instanceof TaskApiError && err.status === 401) {
+        clearAccessToken();
+        router.replace("/login");
+        return;
+      }
+      setActionError(err instanceof Error ? err.message : "Unable to update this task. Please retry.");
+    } finally {
+      setActionBusy(false);
     }
   }
 
@@ -548,6 +601,39 @@ export default function DashboardPage() {
               </Link>
             </div>
           </section>
+
+          {goals.length === 0 && !goalsLoading && !goalsError && (
+            <section className="flex flex-col items-start gap-4 rounded-2xl border border-blue-200 bg-blue-50/70 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6" aria-labelledby="first-goal-title">
+              <div><p className="text-xs font-semibold tracking-[0.16em] text-blue-700 uppercase">A fresh start</p><h2 id="first-goal-title" className="mt-1 text-lg font-bold text-slate-900">Make space for your first goal</h2><p className="mt-1 text-sm text-slate-600">AURA can help you turn one meaningful goal into clear next steps.</p></div>
+              <Link href="/goals" className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"><Plus aria-hidden="true" className="size-4" />Create your first goal</Link>
+            </section>
+          )}
+
+          <section className="grid gap-6 lg:grid-cols-2" aria-label="Today overview and next action">
+            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+              <SectionHeading eyebrow="Today overview" title="Your workload" description="Due dates and planned focus for today." />
+              {tasksLoading || scheduleLoading ? <div role="status" aria-label="Loading today's overview" className="mt-5 grid grid-cols-3 gap-3"><span className="sr-only">Loading your workload</span>{[1, 2, 3].map((item) => <span key={item} className="h-20 animate-pulse rounded-xl bg-slate-100" />)}</div> : tasksError ? <div role="alert" className="mt-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-800"><p>{tasksError}</p><button type="button" onClick={loadTasks} className="mt-2 inline-flex items-center gap-2 font-semibold underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"><RefreshCw aria-hidden="true" className="size-4" />Retry</button></div> : <>
+                <div className="mt-5 grid grid-cols-3 gap-3">
+                  <div className="rounded-xl bg-blue-50 p-3"><p className="text-xs font-medium text-blue-800">Due today</p><p className="mt-2 text-2xl font-bold text-slate-900">{todaysTasks.filter((task) => task.status.toLowerCase() !== "completed").length}</p><p className="text-[11px] text-slate-500">open tasks</p></div>
+                  <div className="rounded-xl bg-rose-50 p-3"><p className="text-xs font-medium text-rose-800">Overdue</p><p className="mt-2 text-2xl font-bold text-slate-900">{overdueTasks.length}</p><p className="text-[11px] text-slate-500">open tasks</p></div>
+                  <div className="rounded-xl bg-violet-50 p-3"><p className="text-xs font-medium text-violet-800">Planned</p><p className="mt-2 text-2xl font-bold text-slate-900">{plannedMinutes}<span className="ml-1 text-sm font-semibold">min</span></p><p className="text-[11px] text-slate-500">of {dailyCapacity || "—"} min</p></div>
+                </div>
+                {dailyCapacity > 0 && <div className="mt-4"><div className="mb-1.5 flex justify-between text-xs text-slate-500"><span>Daily capacity used</span><span>{Math.min(100, Math.round((plannedMinutes / dailyCapacity) * 100))}%</span></div><div className="h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label="Daily capacity used" aria-valuemin={0} aria-valuemax={dailyCapacity} aria-valuenow={Math.min(dailyCapacity, plannedMinutes)}><div className={`h-full rounded-full ${plannedMinutes > dailyCapacity ? "bg-rose-500" : "bg-blue-600"}`} style={{ width: `${Math.min(100, (plannedMinutes / dailyCapacity) * 100)}%` }} /></div></div>}
+                <p className="mt-3 text-xs leading-5 text-slate-500">{todaySchedule ? "Planned minutes come from open items in your approved schedule." : "When no schedule is available, planned time estimates open tasks due today."}</p>
+              </>}
+            </article>
+
+            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+              <SectionHeading eyebrow="Suggested next action" title="Make one small move" description="A local suggestion using task priority, deadline, goal priority, and effort." />
+              {tasksLoading ? <div role="status" aria-label="Loading next action" className="mt-5 h-28 animate-pulse rounded-xl bg-slate-100"><span className="sr-only">Loading suggested task</span></div> : tasksError ? <div role="alert" className="mt-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-800"><p>{tasksError}</p><button type="button" onClick={loadTasks} className="mt-2 font-semibold underline">Retry</button></div> : !suggestedTask ? <div className="mt-5 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-5 text-center"><p className="text-sm font-semibold text-slate-800">No open tasks right now</p><p className="mt-1 text-sm text-slate-500">Add a task to an active goal to get a suggested next step.</p><Link href="/tasks" className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-blue-700 hover:text-blue-800">View tasks <ArrowRight aria-hidden="true" className="size-4" /></Link></div> : <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50/60 p-4 sm:p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-medium text-blue-700">{goals.find((goal) => goal.id === suggestedTask.goal_id)?.title ?? "Your goal"} · {suggestedTask.priority} priority</p><h3 className="mt-1 break-words text-base font-bold text-slate-900">{suggestedTask.title}</h3><p className="mt-1 text-sm text-slate-600">{suggestedTask.deadline ? `Due ${formatShortDate(suggestedTask.deadline)}` : "No deadline set"}{suggestedTask.estimated_minutes ? ` · ${suggestedTask.estimated_minutes} min` : ""}</p></div><Sparkles aria-hidden="true" className="size-5 shrink-0 text-blue-600" /></div>
+                {actionError && <p role="alert" className="mt-3 text-sm text-rose-700">{actionError}</p>}
+                <div className="mt-4 flex flex-wrap gap-2"><button type="button" disabled={actionBusy} onClick={() => void progressSuggestedTask()} className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:opacity-50">{actionBusy ? <RefreshCw aria-hidden="true" className="size-4 animate-spin" /> : suggestedTask.status.toLowerCase() === "in_progress" ? <CheckCircle2 aria-hidden="true" className="size-4" /> : <ArrowRight aria-hidden="true" className="size-4" />}{suggestedTask.status.toLowerCase() === "in_progress" ? "Complete task" : "Start task"}</button><Link href="/tasks" className="inline-flex items-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600">Open task list</Link></div>
+              </div>}
+            </article>
+          </section>
+
+          <CompletionInsights goals={goals} tasks={tasks} loading={tasksLoading || goalsLoading} taskError={tasksError} goalsError={goalsError} onRetryTasks={() => void loadTasks()} onRetryGoals={() => void loadGoals()} />
 
           {/* Summary metrics */}
           <section aria-label="Goal summary">
