@@ -5,7 +5,7 @@ Plan recorded after reviewing the current App Router pages, shared components, s
 | Phase | Expected touch points | Status |
 | --- | --- | --- |
 | 1. Dashboard | `app/(private)/dashboard/page.tsx`, `components/dashboard/*`, `app/globals.css` | Implemented; lint and build passed |
-| 2. Kanban tasks | tasks page, task service/types, task API/model/migrations/tests for bulk, subtasks and history | Planned |
+| 2. Kanban tasks | tasks page, task service/types, task API/model/migrations/tests for bulk, subtasks and history | Implemented; API test, lint and build passed |
 | 3. Calendar views | planner pages/components, planner services/types, schedule APIs for custom slots and conflicts | Planned |
 | 4. Assistant chat | assistant page/components, assistant services/types, conversation model/migration/routes/tests, voice panel | Planned |
 | 5. Notifications and inbox | Header, dashboard and notifications page, services/types, notification and Gmail APIs/models/migrations/tests | Planned |
@@ -22,3 +22,9 @@ Plan recorded after reviewing the current App Router pages, shared components, s
 Implemented: daily workload summary, active-goal progress rings, weekly completion chart, next-action card, streak and 12-week activity heatmap, plus a first-goal call to action. Completion activity uses the existing task `updated_at` timestamp because the API does not expose a dedicated `completed_at` field. The next-action rank is a client-side estimate from priority, deadline, goal priority, and effort because the API does not expose a score yet. Reduced-motion preferences are respected.
 
 Verification: `npm.cmd run lint` passed; `npm.cmd run build` passed.
+
+### Phase 2: Kanban task board
+
+Implemented list/board toggle persisted per user, search and filters, deadline/priority/estimated-score sorting, bulk complete/delete, keyboard and pointer drag-and-drop with optimistic rollback, and a detail drawer for task editing, notes, subtasks, and activity. Added authenticated, owner-scoped bulk/subtask/activity APIs and a migration for task notes, subtasks, and activity records. The score sort shares the dashboard's transparent client-side estimate until the scoring API exists.
+
+Verification: `backend/unit_tests/test_task_board_api.py` passed; `npm.cmd run lint` passed; `npm.cmd run build` passed.

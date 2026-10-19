@@ -4,6 +4,7 @@ from app.models.task import Task
 from app.models.user import User
 from app.models.integration import Integration
 from app.models.planning import DailySchedule, ScheduleEntry, UserPlanningPreference
+from app.models.task_detail import TaskActivity, TaskSubtask
 
 
 __all__ = [
@@ -14,4 +15,6 @@ __all__ = [
     "UserPlanningPreference",
     "DailySchedule",
     "ScheduleEntry",
+    "TaskSubtask",
+    "TaskActivity",
 ]

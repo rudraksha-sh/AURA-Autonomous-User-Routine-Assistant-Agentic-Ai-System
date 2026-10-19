@@ -34,6 +34,7 @@ import type { Task } from "@/types/task";
 import { getDailySchedule, getPlanningPreferences } from "@/services/planner";
 import type { DailySchedule } from "@/types/planner";
 import { CompletionInsights } from "@/components/dashboard/CompletionInsights";
+import { getTaskScore } from "@/lib/task-score";
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -128,23 +129,6 @@ function getStatusClass(status: string) {
 
 function getGoalHref(goal: Goal) {
   return `/goals/${goal.id}`;
-}
-
-function suggestedTaskScore(task: Task, goal: Goal | undefined, now: Date) {
-  const priority = task.priority.toLowerCase() === "high" ? 30 : task.priority.toLowerCase() === "medium" ? 20 : 10;
-  let urgency = 0;
-  if (task.deadline) {
-    const deadline = new Date(task.deadline);
-    if (!Number.isNaN(deadline.getTime())) {
-      const dueDay = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const days = Math.round((dueDay.getTime() - today.getTime()) / 86_400_000);
-      urgency = days < 0 ? 45 : days === 0 ? 40 : days <= 7 ? 25 : days <= 30 ? 15 : 5;
-    }
-  }
-  const quickWin = task.estimated_minutes && task.estimated_minutes <= 30 ? 10 : 0;
-  const goalPriority = goal?.priority.toLowerCase() === "high" ? 10 : goal?.priority.toLowerCase() === "medium" ? 5 : 0;
-  return Math.min(100, priority + urgency + quickWin + goalPriority);
 }
 
 function MetricCard({
@@ -468,7 +452,7 @@ export default function DashboardPage() {
 
   const suggestedTask = tasks
     .filter((task) => task.status.toLowerCase() !== "completed")
-    .sort((left, right) => suggestedTaskScore(right, goals.find((goal) => goal.id === right.goal_id), new Date()) - suggestedTaskScore(left, goals.find((goal) => goal.id === left.goal_id), new Date()))[0];
+    .sort((left, right) => getTaskScore(right, goals.find((goal) => goal.id === right.goal_id)) - getTaskScore(left, goals.find((goal) => goal.id === left.goal_id)))[0];
 
   async function progressSuggestedTask() {
     if (!suggestedTask || actionBusy) return;
