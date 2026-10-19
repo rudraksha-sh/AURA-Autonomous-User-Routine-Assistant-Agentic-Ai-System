@@ -44,6 +44,10 @@ async def lifespan(_: FastAPI):
             "density": "VARCHAR(20) NOT NULL DEFAULT 'comfortable'",
             "font_size": "VARCHAR(20) NOT NULL DEFAULT 'medium'",
             "use_ai_planning": "BOOLEAN NOT NULL DEFAULT 1",
+            # Additive local-development compatibility: preserve existing accounts.
+            "email_verified": "BOOLEAN NOT NULL DEFAULT 1",
+            "two_factor_enabled": "BOOLEAN NOT NULL DEFAULT 0",
+            "token_version": "INTEGER NOT NULL DEFAULT 0",
         }
         with engine.begin() as connection:
             for column, definition in appearance_columns.items():

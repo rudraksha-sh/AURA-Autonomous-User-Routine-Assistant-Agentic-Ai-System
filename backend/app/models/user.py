@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, String
+from sqlalchemy import Boolean, DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -46,6 +46,12 @@ class User(Base):
     font_size: Mapped[str] = mapped_column(String(20), nullable=False, default="medium", server_default="medium")
 
     use_ai_planning: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="1")
+
+    email_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="1")
+
+    two_factor_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
+
+    token_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

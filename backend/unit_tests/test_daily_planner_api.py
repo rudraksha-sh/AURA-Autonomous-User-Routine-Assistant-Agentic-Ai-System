@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
+from auth_helpers import register_verified
 
 from app.db.session import Base, get_db
 from app.main import app
@@ -22,9 +23,9 @@ def test_authenticated_daily_schedule_preview_approval_and_isolation(tmp_path):
         client = TestClient(app)
 
         def create_account(email: str) -> dict[str, str]:
-            assert client.post("/api/auth/register", json={
+            register_verified(client, {
                 "email": email, "name": "Daily plan", "password": "StrongPass123!",
-            }).status_code == 201
+            })
             response = client.post("/api/auth/login", json={"email": email, "password": "StrongPass123!"})
             return {"Authorization": f"Bearer {response.json()['access_token']}"}
 
@@ -91,9 +92,9 @@ def test_what_if_endpoint_requires_auth_and_isolates_user_data(tmp_path):
         client = TestClient(app)
 
         def register_and_login(email: str) -> dict[str, str]:
-            assert client.post("/api/auth/register", json={
+            register_verified(client, {
                 "email": email, "name": "Simulator", "password": "StrongPass123!",
-            }).status_code == 201
+            })
             response = client.post("/api/auth/login", json={"email": email, "password": "StrongPass123!"})
             return {"Authorization": f"Bearer {response.json()['access_token']}"}
 

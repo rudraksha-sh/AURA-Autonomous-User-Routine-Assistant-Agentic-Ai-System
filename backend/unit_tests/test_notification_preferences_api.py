@@ -20,7 +20,7 @@ def test_notification_preferences_are_saved_per_user(tmp_path):
         with TestClient(app) as client:
             headers = []
             for email in ("notify-a@example.com", "notify-b@example.com"):
-                assert client.post("/api/auth/register", json={"name": "Notify", "email": email, "password": "StrongPass123!"}).status_code == 201
+                register_verified(client, {"name": "Notify", "email": email, "password": "StrongPass123!"})
                 token = client.post("/api/auth/login", json={"email": email, "password": "StrongPass123!"}).json()["access_token"]
                 headers.append({"Authorization": f"Bearer {token}"})
             assert client.get("/api/notifications/preferences").status_code == 401
@@ -42,3 +42,4 @@ def test_notification_preferences_are_saved_per_user(tmp_path):
         app.dependency_overrides.clear()
         app.dependency_overrides.update(previous)
         engine.dispose()
+from auth_helpers import register_verified

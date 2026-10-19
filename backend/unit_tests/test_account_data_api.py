@@ -30,7 +30,7 @@ def test_export_and_typed_account_deletion_remove_only_the_owner_data(tmp_path):
         with TestClient(app) as client:
             auth_headers = []
             for email in ("delete-owner@example.com", "delete-other@example.com"):
-                assert client.post("/api/auth/register", json={"name": "Account", "email": email, "password": "StrongPass123!"}).status_code == 201
+                register_verified(client, {"name": "Account", "email": email, "password": "StrongPass123!"})
                 token = client.post("/api/auth/login", json={"email": email, "password": "StrongPass123!"}).json()["access_token"]
                 auth_headers.append({"Authorization": f"Bearer {token}"})
             owner_id = client.get("/api/auth/me", headers=auth_headers[0]).json()["id"]
@@ -88,3 +88,4 @@ def test_export_and_typed_account_deletion_remove_only_the_owner_data(tmp_path):
         app.dependency_overrides.clear()
         app.dependency_overrides.update(previous)
         engine.dispose()
+from auth_helpers import register_verified

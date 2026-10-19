@@ -1,6 +1,7 @@
 from uuid import uuid4
 
 import pytest
+from auth_helpers import register_verified
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select, func
 from sqlalchemy.orm import Session
@@ -93,9 +94,9 @@ def test_tool_api_requires_auth_and_enforces_nested_goal_ownership(tmp_path):
         client = TestClient(app)
 
         def account(email: str) -> dict[str, str]:
-            assert client.post("/api/auth/register", json={
+            register_verified(client, {
                 "email": email, "name": "Assistant", "password": "StrongPass123!",
-            }).status_code == 201
+            })
             login = client.post("/api/auth/login", json={"email": email, "password": "StrongPass123!"})
             return {"Authorization": f"Bearer {login.json()['access_token']}"}
 

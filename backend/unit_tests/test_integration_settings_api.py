@@ -25,7 +25,7 @@ def test_google_integration_status_and_disconnect_are_private(tmp_path):
             headers_by_email = {}
             user_ids = {}
             for email in ("connected@example.com", "separate@example.com"):
-                assert client.post("/api/auth/register", json={"name": "Google User", "email": email, "password": "StrongPass123!"}).status_code == 201
+                register_verified(client, {"name": "Google User", "email": email, "password": "StrongPass123!"})
                 token = client.post("/api/auth/login", json={"email": email, "password": "StrongPass123!"}).json()["access_token"]
                 headers_by_email[email] = {"Authorization": f"Bearer {token}"}
             with Session(engine) as db:
@@ -56,3 +56,4 @@ def test_google_integration_status_and_disconnect_are_private(tmp_path):
         app.dependency_overrides.clear()
         app.dependency_overrides.update(previous)
         engine.dispose()
+from auth_helpers import register_verified

@@ -15,8 +15,10 @@ import { disconnectGoogleIntegration, getGoogleConnectUrl, getGoogleIntegrationS
 import { getNotificationPreferences, saveNotificationPreferences, type NotificationPreferences } from "@/services/notifications";
 import { getAIPlanningPreference, getAIProviderStatus, saveAIPlanningPreference, type AIProviderStatus } from "@/services/ai-settings";
 import { deleteAccount as deleteAccountRequest, downloadAccountExport } from "@/services/account-data";
+import { confirmTwoFactor, getSecuritySettings, requestTwoFactorCode } from "@/services/auth";
+import { OtpInput } from "@/components/auth/OtpInput";
 
-const TABS = ["Profile", "Appearance", "Planning", "Integrations", "Notifications", "AI", "Data and account"] as const;
+const TABS = ["Profile", "Security", "Appearance", "Planning", "Integrations", "Notifications", "AI", "Data and account"] as const;
 type Tab = (typeof TABS)[number];
 const intlTimeZones = Intl as typeof Intl & { supportedValuesOf?: (key: "timeZone") => string[] };
 const TIME_ZONES = [
@@ -57,6 +59,11 @@ export default function SettingsPage() {
   const [currentPassword, setCurrentPassword] = React.useState("");
   const [newPassword, setNewPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
+  const [twoFactorEnabled, setTwoFactorEnabled] = React.useState(false);
+  const [securityLoading, setSecurityLoading] = React.useState(true);
+  const [securityAction, setSecurityAction] = React.useState<"enable" | "disable" | null>(null);
+  const [securityPassword, setSecurityPassword] = React.useState("");
+  const [securityOtp, setSecurityOtp] = React.useState("");
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -88,6 +95,14 @@ export default function SettingsPage() {
     }).catch((err: unknown) => {
       if (active) setError(err instanceof Error ? err.message : "Unable to load your profile.");
     }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  React.useEffect(() => {
+    let active = true;
+    getSecuritySettings().then((data) => { if (active) setTwoFactorEnabled(data.two_factor_enabled); })
+      .catch((err: unknown) => { if (active && !(err instanceof Error && "status" in err && err.status === 401)) setError(err instanceof Error ? err.message : "Unable to load security settings."); })
+      .finally(() => { if (active) setSecurityLoading(false); });
     return () => { active = false; };
   }, []);
 
@@ -239,6 +254,27 @@ export default function SettingsPage() {
     finally { setBusy(false); }
   }
 
+  async function sendSecurityCode(action: "enable" | "disable") {
+    setBusy(true); setError(null); setNotice(null);
+    try {
+      await requestTwoFactorCode({ current_password: securityPassword, action });
+      setSecurityAction(action); setSecurityOtp(""); setNotice("A confirmation code was sent to your email.");
+    } catch (err) { setError(err instanceof Error ? err.message : "Unable to send the confirmation code."); }
+    finally { setBusy(false); }
+  }
+
+  async function confirmSecurityChange(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!securityAction || securityOtp.length !== 6) return;
+    setBusy(true); setError(null); setNotice(null);
+    try {
+      const result = await confirmTwoFactor({ current_password: securityPassword, code: securityOtp }, securityAction);
+      setTwoFactorEnabled(result.two_factor_enabled); setSecurityAction(null); setSecurityPassword(""); setSecurityOtp("");
+      setNotice(result.two_factor_enabled ? "Two-step login enabled." : "Two-step login disabled.");
+    } catch (err) { setError(err instanceof Error ? err.message : "Unable to update two-step login."); }
+    finally { setBusy(false); }
+  }
+
   async function upload(file: File | undefined) {
     if (!file) return;
     lastAction.current = () => upload(file);
@@ -283,13 +319,30 @@ export default function SettingsPage() {
             <form onSubmit={(event) => { event.preventDefault(); lastAction.current = saveAllChanges; void saveAllChanges(); }} className="grid gap-5">
               <Card><h3 className="text-base font-semibold text-slate-900">Profile</h3><p className="mt-1 text-sm text-slate-600">Your name and email are used across AURA.</p><div className="mt-5 grid gap-4 sm:grid-cols-2"><TextField label="Display name" required maxLength={100} value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" /><TextField label="Email" required type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" /></div><p className="mt-4 text-xs text-slate-500">Account role: {profile.role}</p></Card>
             </form>
+            <Card><h3 className="text-base font-semibold text-slate-900">Profile photo</h3>{profile.role === "admin" ? <><p className="mt-1 text-sm text-slate-600">Administrators can upload a JPEG, PNG, or WebP image up to 5 MB.</p><div className="mt-4 flex flex-wrap gap-3"><label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-within:ring-2 focus-within:ring-blue-600"><Upload aria-hidden="true" className="size-4" />{profile.profile_photo_available ? "Replace photo" : "Upload photo"}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={(event) => { void upload(event.target.files?.[0]); event.currentTarget.value = ""; }} className="sr-only" /></label>{profile.profile_photo_available && <button type="button" disabled={busy} onClick={() => void removePhoto()} className="inline-flex items-center gap-2 rounded-lg border border-rose-200 px-4 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"><Trash2 aria-hidden="true" className="size-4" />Remove photo</button>}</div></> : <p className="mt-1 text-sm text-slate-600">Profile photo management is available to administrator accounts.</p>}</Card>
+          </>}
+          {!loading && activeTab === "Security" && <>
+            <Card>
+              <h3 className="text-base font-semibold text-slate-900">Two-step login</h3>
+              <p className="mt-1 text-sm text-slate-600">Add an email code after your password when signing in.</p>
+              <p role="status" className="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{securityLoading ? "Checking security status…" : `Status: ${twoFactorEnabled ? "Enabled" : "Disabled"}`}</p>
+              {!securityAction && <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                <TextField label="Current password" type="password" minLength={8} maxLength={100} autoComplete="current-password" value={securityPassword} onChange={(event) => setSecurityPassword(event.target.value)} />
+                <button type="button" disabled={busy || securityLoading || !securityPassword} onClick={() => void sendSecurityCode(twoFactorEnabled ? "disable" : "enable")} className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600">{busy ? "Sending…" : twoFactorEnabled ? "Send code to disable" : "Send code to enable"}</button>
+              </div>}
+              {securityAction && <form onSubmit={(event) => void confirmSecurityChange(event)} className="mt-5 space-y-4">
+                <p className="text-sm text-slate-600">Enter the code from your email to {securityAction} two-step login.</p>
+                <TextField label="Confirm current password" type="password" minLength={8} maxLength={100} autoComplete="current-password" value={securityPassword} onChange={(event) => setSecurityPassword(event.target.value)} />
+                <OtpInput value={securityOtp} onChange={setSecurityOtp} disabled={busy} />
+                <div className="flex flex-wrap gap-3"><button type="submit" disabled={busy || securityOtp.length !== 6 || !securityPassword} className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50">{busy ? "Saving…" : "Confirm"}</button><button type="button" disabled={busy} onClick={() => { setSecurityAction(null); setSecurityOtp(""); }} className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700">Cancel</button></div>
+              </form>}
+            </Card>
             <form onSubmit={(event) => void submitPassword(event)} className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
               <div><h3 className="text-base font-semibold text-slate-900">Change password</h3><p className="mt-1 text-sm text-slate-600">Confirm your current password. Changing it signs out your other sessions.</p></div>
-              <TextField label="Current password" type="password" required minLength={8} maxLength={128} autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} />
-              <div className="grid gap-4 sm:grid-cols-2"><TextField label="New password" type="password" required minLength={8} maxLength={128} autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /><TextField label="Confirm new password" type="password" required minLength={8} maxLength={128} autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></div>
-              <div><button disabled={busy || !currentPassword || !newPassword || !confirmPassword} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600">{busy ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}Change password</button></div>
+              <TextField label="Current password" type="password" required minLength={8} maxLength={100} autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} />
+              <div className="grid gap-4 sm:grid-cols-2"><TextField label="New password" type="password" required minLength={8} maxLength={100} autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /><TextField label="Confirm new password" type="password" required minLength={8} maxLength={100} autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></div>
+              <div><button type="submit" disabled={busy || !currentPassword || !newPassword || !confirmPassword} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600">{busy ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}Change password</button></div>
             </form>
-            <Card><h3 className="text-base font-semibold text-slate-900">Profile photo</h3>{profile.role === "admin" ? <><p className="mt-1 text-sm text-slate-600">Administrators can upload a JPEG, PNG, or WebP image up to 5 MB.</p><div className="mt-4 flex flex-wrap gap-3"><label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-within:ring-2 focus-within:ring-blue-600"><Upload aria-hidden="true" className="size-4" />{profile.profile_photo_available ? "Replace photo" : "Upload photo"}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={(event) => { void upload(event.target.files?.[0]); event.currentTarget.value = ""; }} className="sr-only" /></label>{profile.profile_photo_available && <button type="button" disabled={busy} onClick={() => void removePhoto()} className="inline-flex items-center gap-2 rounded-lg border border-rose-200 px-4 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"><Trash2 aria-hidden="true" className="size-4" />Remove photo</button>}</div></> : <p className="mt-1 text-sm text-slate-600">Profile photo management is available to administrator accounts.</p>}</Card>
           </>}
           {!loading && activeTab === "Appearance" && <>
             <Card>
@@ -363,7 +416,7 @@ export default function SettingsPage() {
               <div className="mt-5 grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end"><TextField label={'Type DELETE to confirm'} value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} autoComplete="off" spellCheck={false} /><button type="button" disabled={busy || deleteConfirmation !== "DELETE"} onClick={() => void deleteAccount()} className="inline-flex items-center justify-center gap-2 rounded-lg bg-rose-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-600 focus-visible:ring-offset-2"><Trash2 aria-hidden="true" className="size-4" />Delete account</button></div>
             </Card>
           </>}
-          {!loading && activeTab !== "Profile" && <Card><h3 className="text-base font-semibold text-slate-900">{activeTab}</h3><p className="mt-1 text-sm text-slate-600">This section is being prepared.</p></Card>}
+          {!loading && activeTab !== "Profile" && activeTab !== "Security" && <Card><h3 className="text-base font-semibold text-slate-900">{activeTab}</h3><p className="mt-1 text-sm text-slate-600">This section is being prepared.</p></Card>}
         </div>
         {dirty && <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur sm:px-6"><div className="mx-auto flex max-w-4xl items-center justify-between gap-3"><p className="text-sm font-medium text-slate-700">You have unsaved changes.</p><button type="button" disabled={busy} onClick={() => { lastAction.current = saveAllChanges; void saveAllChanges(); }} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"><Save aria-hidden="true" className="size-4" />Save changes</button></div></div>}
       </main>

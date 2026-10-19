@@ -3,6 +3,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
+from auth_helpers import register_verified
 
 from app.db.session import Base, get_db
 from app.main import app
@@ -40,8 +41,7 @@ def test_calendar_busy_blocks_auth_fallback_and_external_validation(tmp_path):
     app.dependency_overrides[get_db] = override_get_db
     try:
         client = TestClient(app)
-        account = client.post("/api/auth/register", json={"email": "calendar-view@example.com", "name": "Calendar User", "password": "StrongPass123!"})
-        assert account.status_code == 201
+        register_verified(client, {"email": "calendar-view@example.com", "name": "Calendar User", "password": "StrongPass123!"})
         login = client.post("/api/auth/login", json={"email": "calendar-view@example.com", "password": "StrongPass123!"})
         headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
         params = {"start_at": "2026-10-19T00:00:00+00:00", "end_at": "2026-10-26T00:00:00+00:00"}
@@ -90,7 +90,7 @@ def test_calendar_api_failure_returns_clear_unsynced_state(tmp_path):
     app.dependency_overrides[get_db] = override_get_db
     try:
         client = TestClient(app)
-        client.post("/api/auth/register", json={"email": "calendar-error@example.com", "name": "Calendar User", "password": "StrongPass123!"})
+        register_verified(client, {"email": "calendar-error@example.com", "name": "Calendar User", "password": "StrongPass123!"})
         login = client.post("/api/auth/login", json={"email": "calendar-error@example.com", "password": "StrongPass123!"})
         headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
         with Session(engine) as session:

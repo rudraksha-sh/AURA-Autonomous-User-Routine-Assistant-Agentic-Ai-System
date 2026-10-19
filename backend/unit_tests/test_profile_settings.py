@@ -25,8 +25,8 @@ def test_profile_access_update_and_admin_photo_controls(tmp_path, monkeypatch):
             assert client.get("/api/profile").status_code == 401
             assert client.get("/api/profile/theme").status_code == 401
             assert client.patch("/api/profile", json={"name": "Guest", "email": "guest@example.com"}).status_code == 401
-            client.post("/api/auth/register", json={"name": "Regular", "email": "regular@example.com", "password": "SafePassword123!"})
-            client.post("/api/auth/register", json={"name": "Admin", "email": "admin-photo@example.com", "password": "SafePassword123!"})
+            register_verified(client, {"name": "Regular", "email": "regular@example.com", "password": "SafePassword123!"})
+            register_verified(client, {"name": "Admin", "email": "admin-photo@example.com", "password": "SafePassword123!"})
             with Session(engine) as db:
                 admin = db.query(User).filter_by(email="admin-photo@example.com").one()
                 admin.role = "admin"
@@ -100,3 +100,4 @@ def test_profile_access_update_and_admin_photo_controls(tmp_path, monkeypatch):
         app.dependency_overrides.clear()
         app.dependency_overrides.update(previous)
         engine.dispose()
+from auth_helpers import register_verified

@@ -3,6 +3,7 @@ from datetime import timedelta
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
+from auth_helpers import register_verified
 
 from app.db.session import Base, get_db
 from app.main import app
@@ -22,11 +23,7 @@ def test_task_crud_persistence_and_user_isolation(tmp_path):
         client = TestClient(app)
 
         def create_account(email: str) -> str:
-            registration = client.post(
-                "/api/auth/register",
-                json={"email": email, "name": "Task Test", "password": "StrongPass123!"},
-            )
-            assert registration.status_code == 201
+            register_verified(client, {"email": email, "name": "Task Test", "password": "StrongPass123!"})
             login = client.post(
                 "/api/auth/login",
                 json={"email": email, "password": "StrongPass123!"},

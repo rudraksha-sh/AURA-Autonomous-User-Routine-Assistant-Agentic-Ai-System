@@ -41,7 +41,7 @@ def profile_data(user: User) -> dict:
 
 
 def mutation_data(user: User) -> dict:
-    return {**profile_data(user), "access_token": create_access_token({"sub": str(user.id)}), "token_type": "bearer"}
+    return {**profile_data(user), "access_token": create_access_token({"sub": str(user.id), "ver": user.token_version}), "token_type": "bearer"}
 
 
 def theme_data(user: User) -> dict:
@@ -49,7 +49,7 @@ def theme_data(user: User) -> dict:
 
 
 def theme_mutation_data(user: User) -> dict:
-    return {**theme_data(user), "access_token": create_access_token({"sub": str(user.id)}), "token_type": "bearer"}
+    return {**theme_data(user), "access_token": create_access_token({"sub": str(user.id), "ver": user.token_version}), "token_type": "bearer"}
 
 
 def appearance_data(user: User) -> dict:
@@ -96,7 +96,7 @@ def update_appearance_preferences(data: AppearancePreferences, user: User = Depe
     user.font_size = data.font_size
     db.commit()
     db.refresh(user)
-    return {**appearance_data(user), "access_token": create_access_token({"sub": str(user.id)}), "token_type": "bearer"}
+    return {**appearance_data(user), "access_token": create_access_token({"sub": str(user.id), "ver": user.token_version}), "token_type": "bearer"}
 
 
 @router.get("/ai-planning", response_model=AIPlanningPreference)
@@ -109,7 +109,7 @@ def update_ai_planning_preference(data: AIPlanningPreference, user: User = Depen
     user.use_ai_planning = data.use_ai_planning
     db.commit()
     db.refresh(user)
-    return {"use_ai_planning": user.use_ai_planning, "access_token": create_access_token({"sub": str(user.id)}), "token_type": "bearer"}
+    return {"use_ai_planning": user.use_ai_planning, "access_token": create_access_token({"sub": str(user.id), "ver": user.token_version}), "token_type": "bearer"}
 
 
 @router.put("/password", response_model=PasswordChangeResponse)
@@ -119,9 +119,10 @@ def change_password(data: PasswordChange, user: User = Depends(get_current_user)
     if verify_password(data.new_password, user.password_hash):
         raise HTTPException(status_code=400, detail="Choose a password different from your current one")
     user.password_hash = hash_password(data.new_password)
+    user.token_version += 1
     user.updated_at = datetime.now(timezone.utc)
     db.commit()
-    return {"access_token": create_access_token({"sub": str(user.id)}), "token_type": "bearer"}
+    return {"access_token": create_access_token({"sub": str(user.id), "ver": user.token_version}), "token_type": "bearer"}
 
 
 @router.patch("", response_model=ProfileMutationResponse)

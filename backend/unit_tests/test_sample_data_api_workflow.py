@@ -1,6 +1,7 @@
 from datetime import date, datetime, timedelta, timezone
 import pytest
 from fastapi.testclient import TestClient
+from auth_helpers import register_verified
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
@@ -43,10 +44,9 @@ def test_authenticated_goal_task_planner_dashboard_data_and_persistence(tmp_path
         with TestClient(app) as client:
             assert client.get("/api/goals").status_code == 401
             assert client.get("/api/goals", headers={"Authorization": "Bearer invalid-token"}).status_code == 401
-            register = client.post("/api/auth/register", json={
+            register = register_verified(client, {
                 "email": "api-flow@example.com", "name": "API Flow", "password": "SafeTestPassword123!",
             })
-            assert register.status_code == 201
             login = client.post("/api/auth/login", json={
                 "email": "api-flow@example.com", "password": "SafeTestPassword123!",
             })
@@ -123,10 +123,9 @@ def test_authenticated_goal_task_planner_dashboard_data_and_persistence(tmp_path
             assert goal_plan_a.json() == goal_plan_b.json()
             assert len(goal_plan_a.json()["tasks"]) == 5
 
-            other = client.post("/api/auth/register", json={
+            register_verified(client, {
                 "email": "api-other@example.com", "name": "Other", "password": "AnotherSafe123!",
             })
-            assert other.status_code == 201
             other_login = client.post("/api/auth/login", json={
                 "email": "api-other@example.com", "password": "AnotherSafe123!",
             })
@@ -162,7 +161,7 @@ def test_goal_delete_and_task_delete_are_persisted(tmp_path):
     app.dependency_overrides[get_db] = override_get_db
     try:
         with TestClient(app) as client:
-            client.post("/api/auth/register", json={"email": "delete@example.com", "name": "Delete", "password": "SafeTestPassword123!"})
+            register_verified(client, {"email": "delete@example.com", "name": "Delete", "password": "SafeTestPassword123!"})
             token = client.post("/api/auth/login", json={"email": "delete@example.com", "password": "SafeTestPassword123!"}).json()["access_token"]
             headers = {"Authorization": f"Bearer {token}"}
             goal_id = client.post("/api/goals", headers=headers, json={"title": "Delete test goal"}).json()["id"]

@@ -47,3 +47,13 @@ The implementation is split into these checkpoints. Expected touch points were m
 **Planned in this roadmap:** encrypted Google tokens, shared Redis state, cookie and refresh-token auth, prioritization scores, calendar-aware planning, Gmail task suggestions, a confirmation-based tool-calling agent, notifications and re-planning, and final route/task-order consistency work.
 
 **Verification:** backend unit tests, frontend lint, TypeScript checks, and frontend production build pass in the current development environment.
+
+## Email delivery for authentication
+
+Development defaults to `EMAIL_PROVIDER=console`. OTP messages are printed by the backend process; use the code from its console output to verify an account, reset a password, or confirm a sign-in. Delivery runs after the HTTP response, so email-provider outages do not fail the request.
+
+For production, set `EMAIL_PROVIDER=smtp`, `SMTP_HOST`, `SMTP_PORT` (usually `587`), `SMTP_USERNAME`, `SMTP_PASSWORD`, and `EMAIL_FROM`. For Gmail, enable 2-Step Verification on the sending account, create an App Password in Google Account security settings, and use that app password as `SMTP_PASSWORD`; do not use the account's normal password. Production startup rejects the console provider.
+
+OTP behavior is configured with `OTP_EXPIRY_MINUTES`, `OTP_MAX_ATTEMPTS`, `OTP_RESEND_COOLDOWN_SECONDS`, and an optional dedicated `OTP_PEPPER`. When no pepper is provided, the JWT secret is used for OTP HMACs.
+
+Authentication endpoints include `POST /api/auth/verify-email`, `POST /api/auth/resend-verification`, `POST /api/auth/forgot-password`, `POST /api/auth/reset-password`, `POST /api/auth/login/verify-otp`, and the authenticated `POST /api/auth/2fa/send-code`, `/api/auth/2fa/enable`, and `/api/auth/2fa/disable` endpoints. Apply new migrations with `alembic upgrade head`. The security migration preserves existing accounts by marking them verified and initializes their token version without invalidating their current sessions.

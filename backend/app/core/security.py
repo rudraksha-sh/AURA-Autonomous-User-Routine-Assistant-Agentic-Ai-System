@@ -80,6 +80,10 @@ def get_current_user_id(
 
         payload = decode_access_token(credentials.credentials)
 
+        # Signed OTP challenge JWTs are not bearer access tokens.
+        if payload.get("purpose") is not None:
+            raise credentials_exception
+
         subject = payload.get("sub")
 
         if subject is None:
@@ -96,6 +100,9 @@ def get_current_user_id(
 
         user = db.get(User, user_id)
         if user is None:
+            raise credentials_exception
+        token_version = payload.get("ver", 0)
+        if not isinstance(token_version, int) or token_version != user.token_version:
             raise credentials_exception
 
         last_updated = user.updated_at

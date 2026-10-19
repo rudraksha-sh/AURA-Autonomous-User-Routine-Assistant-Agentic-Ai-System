@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
+from auth_helpers import register_verified
 
 from app.core.security import create_access_token
 from app.db.session import Base, get_db
@@ -23,7 +24,7 @@ def test_authenticated_plan_preview_and_idempotent_save(tmp_path):
         client = TestClient(app)
 
         def create_account(email: str) -> dict[str, str]:
-            assert client.post("/api/auth/register", json={"email": email, "name": "Planner", "password": "StrongPass123!"}).status_code == 201
+            register_verified(client, {"email": email, "name": "Planner", "password": "StrongPass123!"})
             response = client.post("/api/auth/login", json={"email": email, "password": "StrongPass123!"})
             return {"Authorization": f"Bearer {response.json()['access_token']}"}
 

@@ -15,12 +15,15 @@ import { loginSchema, type LoginSchema } from "@/lib/validations/auth";
 import { useRouter } from "next/navigation";
 import { setAccessToken } from "@/services/auth-storage";
 
-import { login } from "@/services/auth";
+import { ApiError, login, verifyLoginOtp } from "@/services/auth";
+import { OtpInput } from "@/components/auth/OtpInput";
 
 export function LoginForm({ redirectTo }: { redirectTo?: string }) {
   const router = useRouter();
   const [error, setError] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [challengeId, setChallengeId] = React.useState<string | null>(null);
+  const [otp, setOtp] = React.useState("");
 
   const {
     register,
@@ -40,22 +43,50 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
 
     try {
       const response = await login(data);
-
-      setAccessToken(response.access_token);
-      let destination = "/dashboard";
-      if (redirectTo?.startsWith("/")) {
-        const safeUrl = new URL(redirectTo, "https://aura.local");
-        if (safeUrl.origin === "https://aura.local" && safeUrl.pathname !== "/login") {
-          destination = `${safeUrl.pathname}${safeUrl.search}${safeUrl.hash}`;
-        }
+      if (response.requires_otp && response.challenge_id) {
+        setChallengeId(response.challenge_id);
+        setOtp("");
+        return;
       }
-      router.replace(destination);
+      if (!response.access_token) throw new Error("The sign-in response was incomplete.");
+      completeLogin(response.access_token);
     } catch (err) {
+      if (err instanceof ApiError && err.code === "email_not_verified") {
+        const email = encodeURIComponent(data.email);
+        router.replace(`/verify-email?email=${email}`);
+        return;
+      }
       setError(
         err instanceof Error
           ? err.message
           : "Unable to sign in. Please try again."
       );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const completeLogin = (token: string) => {
+    setAccessToken(token);
+    let destination = "/dashboard";
+    if (redirectTo?.startsWith("/")) {
+      const safeUrl = new URL(redirectTo, "https://aura.local");
+      if (safeUrl.origin === "https://aura.local" && safeUrl.pathname !== "/login") {
+        destination = `${safeUrl.pathname}${safeUrl.search}${safeUrl.hash}`;
+      }
+    }
+    router.replace(destination);
+  };
+
+  const submitOtp = async () => {
+    if (!challengeId || otp.length !== 6) return;
+    setError(null);
+    setIsLoading(true);
+    try {
+      const response = await verifyLoginOtp({ challenge_id: challengeId, code: otp });
+      completeLogin(response.access_token);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to verify the code.");
     } finally {
       setIsLoading(false);
     }
@@ -73,7 +104,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
         </Alert>
       )}
 
-      <div className="space-y-2">
+      {!challengeId && <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
 
         <Input
@@ -95,9 +126,9 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
             {errors.email.message}
           </p>
         )}
-      </div>
+      </div>}
 
-      <div className="space-y-2">
+      {!challengeId && <div className="space-y-2">
         <Label htmlFor="password">Password</Label>
 
         <Input
@@ -121,12 +152,18 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
             {errors.password.message}
           </p>
         )}
-      </div>
+      </div>}
+
+      {challengeId && <div className="space-y-4">
+        <p className="text-sm text-slate-600">Enter the sign-in code sent to your email.</p>
+        <OtpInput value={otp} onChange={setOtp} disabled={isLoading} />
+      </div>}
 
       <Button
-        type="submit"
+        type={challengeId ? "button" : "submit"}
+        onClick={challengeId ? () => void submitOtp() : undefined}
         className="w-full"
-        disabled={isLoading}
+        disabled={isLoading || (Boolean(challengeId) && otp.length !== 6)}
       >
         {isLoading ? (
           <>
@@ -137,9 +174,12 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
             Signing in...
           </>
         ) : (
-          "Sign in"
+          challengeId ? "Verify and sign in" : "Sign in"
         )}
       </Button>
+
+      {!challengeId && <p className="text-right text-sm"><Link href="/forgot-password" className="font-medium text-slate-700 underline underline-offset-4">Forgot password?</Link></p>}
+      {challengeId && <button type="button" onClick={() => { setChallengeId(null); setOtp(""); }} className="w-full text-sm text-slate-600 underline underline-offset-4">Back to password sign in</button>}
 
       <p className="text-center text-sm text-slate-500">
         Don&apos;t have an account?{" "}

@@ -8,6 +8,7 @@ from app.models.agent_run import AgentRun
 from app.models.goal import Goal
 from app.models.integration import Integration
 from app.models.notification_preference import UserNotificationPreference
+from app.models.otp_code import OtpCode
 from app.models.planning import DailySchedule, ScheduleEntry, UserPlanningPreference
 from app.models.task import Task
 from app.models.task_detail import TaskActivity, TaskSubtask
@@ -66,6 +67,7 @@ def delete_user_account(db: Session, user_id: int) -> str | None:
     db.execute(delete(Integration).where(Integration.user_id == user_id))
     db.execute(delete(UserPlanningPreference).where(UserPlanningPreference.user_id == user_id))
     db.execute(delete(UserNotificationPreference).where(UserNotificationPreference.user_id == user_id))
+    db.execute(delete(OtpCode).where(OtpCode.user_id == user_id))
     db.delete(user)
     db.commit()
     return photo_filename

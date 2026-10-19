@@ -19,6 +19,17 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
 
+    email_provider: Literal["console", "smtp"] = "console"
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    email_from: str = "AURA <noreply@example.com>"
+    otp_expiry_minutes: int = Field(default=10, ge=1, le=60)
+    otp_max_attempts: int = Field(default=5, ge=1, le=20)
+    otp_resend_cooldown_seconds: int = Field(default=60, ge=1, le=3600)
+    otp_pepper: str = ""
+
     cors_origins: str = "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001"
     
     google_client_id: str
@@ -38,6 +49,10 @@ class Settings(BaseSettings):
                 raise ValueError("JWT_SECRET_KEY must be at least 32 bytes in production")
             if self.jwt_secret_key == "your-jwt-secret-key" or self.jwt_secret_key.startswith("replace-"):
                 raise ValueError("JWT_SECRET_KEY must be replaced in production")
+            if self.email_provider == "console":
+                raise ValueError("EMAIL_PROVIDER=console is not allowed in production")
+            if self.email_provider == "smtp" and (not self.smtp_host or not self.email_from):
+                raise ValueError("SMTP_HOST and EMAIL_FROM are required when EMAIL_PROVIDER=smtp")
         return self
 
     @property

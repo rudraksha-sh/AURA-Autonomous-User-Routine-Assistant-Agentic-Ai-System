@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
+from auth_helpers import register_verified
 
 from app.agents.planner import service as planner_service
 from app.core.config import settings
@@ -27,12 +28,11 @@ def test_ai_endpoint_uses_deterministic_fallback_and_persists_real_records(tmp_p
         with TestClient(app) as client:
             assert client.get("/api/ai/status").status_code == 401
             assert client.post("/api/ai/plan", json={"goal": "Study machine learning"}).status_code == 401
-            registered = client.post("/api/auth/register", json={
+            register_verified(client, {
                 "email": "planner-fallback@example.com",
                 "name": "Planner Test",
                 "password": "SafeTestPassword123!",
             })
-            assert registered.status_code == 201
             login = client.post("/api/auth/login", json={
                 "email": "planner-fallback@example.com", "password": "SafeTestPassword123!",
             })

@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
+from auth_helpers import register_verified
 
 from app.core.security import create_access_token
 from app.db.session import Base, get_db
@@ -20,8 +21,7 @@ def test_task_board_details_bulk_actions_and_user_scoping(tmp_path):
         client = TestClient(app)
 
         def account(email: str) -> dict[str, str]:
-            response = client.post("/api/auth/register", json={"email": email, "name": "Board Tester", "password": "StrongPass123!"})
-            assert response.status_code == 201
+            register_verified(client, {"email": email, "name": "Board Tester", "password": "StrongPass123!"})
             with Session(engine) as session:
                 from app.models.user import User
 
