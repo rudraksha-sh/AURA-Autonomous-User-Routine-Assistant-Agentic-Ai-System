@@ -1,3 +1,4 @@
+from tests.conftest import register_and_verify_email
 from datetime import timedelta
 
 from app.core.security import create_access_token
@@ -44,27 +45,16 @@ def test_duplicate_registration(client):
 
 
 def test_login(client):
-    client.post(
-        "/api/auth/register",
-        json={
-            "email": "login@example.com",
-            "password": "TestPassword@123",
-            "name": "Login User",
-        },
+    response = register_and_verify_email(
+        client,
+        "login@example.com",
+        "TestPassword@123",
+        "Login User",
     )
 
-    response = client.post(
-        "/api/auth/login",
-        json={
-            "email": "login@example.com",
-            "password": "TestPassword@123",
-        },
-    )
-
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
 
     data = response.json()
-
     assert "access_token" in data
     assert data["token_type"].lower() == "bearer"
 

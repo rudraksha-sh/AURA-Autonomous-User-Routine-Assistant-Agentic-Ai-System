@@ -119,7 +119,7 @@ def test_google_connect_requires_authentication(client):
     )
 
     assert response.status_code == 401
-    assert response.json()["message"] == "Not authenticated"
+    assert response.json()["message"] == "Could not validate credentials"
 
 
 def test_google_connect_returns_authorization_url(client):

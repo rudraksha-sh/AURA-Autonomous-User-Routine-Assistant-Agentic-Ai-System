@@ -1,30 +1,19 @@
+from tests.conftest import register_and_verify_email
 from unittest.mock import patch
 
 from app.schemas.ai import GoalPlan, PlannedTask
 
 
+
 def register_and_login(client, email):
-    client.post(
-        "/api/auth/register",
-        json={
-            "email": email,
-            "password": "TestPassword@123",
-            "name": "AI Test User",
-        },
+    response = register_and_verify_email(
+        client,
+        email,
+        "TestPassword@123",
+        "AI Test User",
     )
-
-    response = client.post(
-        "/api/auth/login",
-        json={
-            "email": email,
-            "password": "TestPassword@123",
-        },
-    )
-
-    assert response.status_code == 200
-
+    assert response.status_code == 200, response.text
     return response.json()["access_token"]
-
 
 def auth_headers(token):
     return {

@@ -18,7 +18,7 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.add_column("users", sa.Column("email_verified", sa.Boolean(), nullable=False, server_default=sa.false()))
     # Keep every account that existed before email verification able to log in.
-    op.execute(sa.text("UPDATE users SET email_verified = 1"))
+    op.execute(sa.text("UPDATE users SET email_verified = TRUE"))
     op.add_column("users", sa.Column("two_factor_enabled", sa.Boolean(), nullable=False, server_default=sa.false()))
     op.add_column("users", sa.Column("token_version", sa.Integer(), nullable=False, server_default="0"))
     op.create_table(
@@ -43,3 +43,4 @@ def downgrade() -> None:
     op.drop_column("users", "token_version")
     op.drop_column("users", "two_factor_enabled")
     op.drop_column("users", "email_verified")
+

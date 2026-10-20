@@ -1,4 +1,4 @@
-from sqlalchemy import select
+﻿from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.goal import Goal
@@ -33,7 +33,7 @@ def get_user_goals(
     statement = (
         select(Goal)
         .where(Goal.user_id == user_id)
-        .order_by(Goal.created_at.desc())
+        .order_by(Goal.created_at.asc(), Goal.id.asc())
     )
 
     return list(db.scalars(statement).all())
