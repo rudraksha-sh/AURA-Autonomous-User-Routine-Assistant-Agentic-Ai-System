@@ -42,6 +42,7 @@ class ProposedTask(BaseModel):
 
 
 class PlanResponse(BaseModel):
+    generation_mode: Literal["openrouter", "rule_based"]
     goal_id: int
     goal_title: str
     tasks: list[ProposedTask] = Field(min_length=3, max_length=8)

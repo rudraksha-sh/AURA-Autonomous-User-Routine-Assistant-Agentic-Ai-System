@@ -41,19 +41,28 @@ class OpenRouterGoalPlanner:
         )
 
     def generate(self, user_goal: str) -> ProviderGoalPlan:
-        response = self.client.chat.completions.parse(
+        response = self.client.chat.completions.create(
             model=settings.ai_model,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": build_goal_prompt(user_goal)},
+                {
+                    "role": "user",
+                    "content": (
+                        build_goal_prompt(user_goal)
+                        + "\\nReturn a valid JSON object matching this structure: "
+                        + '{"title":"...", "description":"...", "priority":"medium", '
+                        + '"tasks":[{"title":"...", "description":"...", '
+                        + '"priority":"medium", "estimated_minutes":30, '
+                        + '"position":1, "deadline_offset_days":1}]}'
+                    ),
+                },
             ],
-            response_format=ProviderGoalPlan,
+            response_format={"type": "json_object"},
         )
-        parsed = response.choices[0].message.parsed
-        if parsed is None:
-            raise ValueError("AI provider returned no structured plan")
-        return parsed
-
+        content = response.choices[0].message.content
+        if not content:
+            raise ValueError("AI provider returned an empty response")
+        return ProviderGoalPlan.model_validate_json(content)
 
 def provider_status() -> AIProviderStatus:
     configured = settings.ai_provider == "openrouter" and bool(settings.openrouter_api_key.strip())

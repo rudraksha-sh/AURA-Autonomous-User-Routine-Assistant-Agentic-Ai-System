@@ -8,6 +8,7 @@ export type ProposedPlanTask = {
 };
 
 export type PlanPreview = {
+  generation_mode: "openrouter" | "rule_based";
   goal_id: number;
   goal_title: string;
   tasks: ProposedPlanTask[];
