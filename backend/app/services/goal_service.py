@@ -17,6 +17,7 @@ def create_goal(
         status=goal_data.status,
         priority=goal_data.priority,
         deadline=goal_data.deadline,
+        continue_without_asking=goal_data.continue_without_asking,
     )
 
     db.add(goal)

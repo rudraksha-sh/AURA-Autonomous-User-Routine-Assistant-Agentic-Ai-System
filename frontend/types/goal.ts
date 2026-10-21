@@ -1,3 +1,4 @@
+
 export type GoalStatus = "active" | "completed" | "archived";
 export type GoalPriority = "low" | "medium" | "high";
 
@@ -9,6 +10,7 @@ export type Goal = {
   status: string;
   priority: string;
   deadline: string | null;
+  continue_without_asking: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -19,6 +21,7 @@ export type CreateGoalInput = {
   status?: string;
   priority?: string;
   deadline?: string | null;
+  continue_without_asking?: boolean;
 };
 
 export type UpdateGoalInput = {
@@ -27,4 +30,5 @@ export type UpdateGoalInput = {
   status?: string;
   priority?: string;
   deadline?: string | null;
+  continue_without_asking?: boolean;
 };

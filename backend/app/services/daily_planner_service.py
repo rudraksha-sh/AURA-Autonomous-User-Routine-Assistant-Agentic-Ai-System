@@ -53,12 +53,28 @@ def update_preferences(
     return PlanningPreferencesResponse.model_validate(row)
 
 
-def _owned_pending_tasks(db: Session, user_id: int) -> list[Task]:
-    return list(db.scalars(
+
+def _owned_pending_tasks(
+    db: Session,
+    user_id: int,
+    task_ids: set[int] | None = None,
+) -> list[Task]:
+    query = (
         select(Task)
         .join(Goal, Goal.id == Task.goal_id)
-        .where(Goal.user_id == user_id, Goal.status == "active", Task.status != "completed")
-    ).all())
+        .where(
+            Goal.user_id == user_id,
+            Goal.status == "active",
+            Task.status != "completed",
+        )
+    )
+
+    if task_ids is not None:
+        if not task_ids:
+            return []
+        query = query.where(Task.id.in_(task_ids))
+
+    return list(db.scalars(query).all())
 
 
 def _priority_rank(priority: str) -> int:
@@ -102,10 +118,16 @@ def _explanation(task: Task, target_date: date, timezone_name: str) -> str:
     return f"Ordered by priority and deadline; {urgency_text}."
 
 
-def preview_daily_schedule(db: Session, user_id: int, target_date: date) -> SchedulePreviewResponse:
+def preview_daily_schedule(
+    db: Session,
+    user_id: int,
+    target_date: date,
+    *,
+    task_ids: set[int] | None = None,
+) -> SchedulePreviewResponse:
     preferences = get_preferences(db, user_id)
     zone = ZoneInfo(preferences.timezone_name)
-    tasks = _owned_pending_tasks(db, user_id)
+    tasks = _owned_pending_tasks(db, user_id, task_ids)
     tasks.sort(key=lambda task: (
         _deadline_rank(task, target_date, preferences.timezone_name)[0],
         _priority_rank(task.priority),

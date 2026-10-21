@@ -18,9 +18,17 @@ def register_exception_handlers(app: FastAPI) -> None:
         exc: RequestValidationError,
     ) -> JSONResponse:
         logger.warning(
-            "Request validation failed: method=%s path=%s",
+            "Request validation failed: method=%s path=%s errors=%s",
             request.method,
             request.url.path,
+            [
+                {
+                    "location": error.get("loc"),
+                    "message": error.get("msg"),
+                    "type": error.get("type"),
+                }
+                for error in exc.errors()
+            ],
         )
 
         return JSONResponse(

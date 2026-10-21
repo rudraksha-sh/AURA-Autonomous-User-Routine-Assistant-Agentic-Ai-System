@@ -1,3 +1,4 @@
+
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -9,6 +10,7 @@ class GoalCreate(BaseModel):
     status: str = Field(default="active", max_length=50)
     priority: str = Field(default="medium", max_length=20)
     deadline: datetime | None = None
+    continue_without_asking: bool = False
 
 
 class GoalUpdate(BaseModel):
@@ -17,6 +19,7 @@ class GoalUpdate(BaseModel):
     status: str | None = Field(default=None, max_length=50)
     priority: str | None = Field(default=None, max_length=20)
     deadline: datetime | None = None
+    continue_without_asking: bool | None = None
 
 
 class GoalResponse(BaseModel):
@@ -27,6 +30,7 @@ class GoalResponse(BaseModel):
     status: str
     priority: str
     deadline: datetime | None
+    continue_without_asking: bool = False
     created_at: datetime
     updated_at: datetime
 
