@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from app.core.config import settings
 
 from app.core.security import get_current_user_id
 from app.db.session import get_db
@@ -117,8 +118,7 @@ def google_callback(
         scopes=scopes_value,
     )
 
-    return {
-        "status": "connected",
-        "provider": "google",
-        "provider_account_id": provider_account_id,
-    }
+    return RedirectResponse(
+        url=f"{settings.frontend_url.rstrip('/')}/settings?google=connected",
+        status_code=303,
+    )

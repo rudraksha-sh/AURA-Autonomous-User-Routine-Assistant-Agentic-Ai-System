@@ -57,7 +57,12 @@ def generate_goal_plan(goal: Goal, task_count: int = 5, *, today: date | None = 
             deadline=deadline,
             position=index,
         ))
-    return PlanResponse(goal_id=goal.id, goal_title=goal.title, tasks=tasks)
+    return PlanResponse(
+        generation_mode="rule_based",
+        goal_id=goal.id,
+        goal_title=goal.title,
+        tasks=tasks,
+    )
 
 
 def save_goal_plan(

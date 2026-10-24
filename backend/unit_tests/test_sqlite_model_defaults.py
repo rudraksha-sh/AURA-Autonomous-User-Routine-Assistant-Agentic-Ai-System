@@ -57,6 +57,7 @@ def test_created_at_defaults_work_with_existing_sqlite_schema(tmp_path):
                     status VARCHAR(50) NOT NULL,
                     priority VARCHAR(20) NOT NULL,
                     deadline DATETIME,
+                    continue_without_asking BOOLEAN NOT NULL DEFAULT 0,
                     created_at DATETIME NOT NULL DEFAULT 'now()',
                     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
