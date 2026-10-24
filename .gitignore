@@ -30,3 +30,9 @@ dist/
 .idea/
 .DS_Store
 Thumbs.db
+*.bak
+*.bak2
+*.bakcle
+*.before_*.bak
+__pycache__/
+*.py[cod]
