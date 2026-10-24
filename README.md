@@ -1,133 +1,231 @@
-# AURA — Autonomous User Routine Assistant
+# ✨ AURA — Autonomous User Routine Assistant
 
-AURA is an AI-assisted goal-planning application that transforms user goals into actionable tasks, supports progress tracking, and integrates with external services to make routine planning more useful.
+<p align="center">
+  <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=25&duration=3000&pause=800&color=8B5CF6&center=true&vCenter=true&width=850&lines=Turn+your+goals+into+actionable+plans.;Plan+smarter.+Execute+better.;Your+AI-powered+routine+assistant." alt="Animated AURA introduction" />
+</p>
 
-## Project Status
+<p align="center">
+  <strong>An AI-assisted goal planning and routine management platform.</strong>
+  <br />
+  Transform ambitions into structured plans, actionable tasks, and measurable progress.
+</p>
 
-AURA is under active development. The project includes a Next.js frontend, a FastAPI backend, authentication and email verification, goal and task workflows, AI-assisted planning, and Google OAuth integration.
+<p align="center">
+  <a href="https://aura-autonomous-user-routine-assist.vercel.app">
+    <img src="https://img.shields.io/badge/🌐_Live_Demo-Visit_AURA-8B5CF6?style=for-the-badge" alt="Visit live demo" />
+  </a>
+  <a href="https://github.com/rudraksha-sh/AURA-Autonomous-User-Routine-Assistant-Agentic-Ai-System">
+    <img src="https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github" alt="GitHub repository" />
+  </a>
+  <a href="https://aura-backend-cz7k.onrender.com/docs">
+    <img src="https://img.shields.io/badge/API-Documentation-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="API documentation" />
+  </a>
+</p>
 
-AI planning uses OpenRouter when configured, with a deterministic, rule-based fallback.
+<p align="center">
+  <img src="https://img.shields.io/badge/Frontend-Next.js-black?style=flat-square&logo=next.js" alt="Next.js" />
+  <img src="https://img.shields.io/badge/Backend-FastAPI-009688?style=flat-square&logo=fastapi" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/Language-Python-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python" />
+  <img src="https://img.shields.io/badge/Language-TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Database-PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL" />
+  <img src="https://img.shields.io/badge/AI-OpenRouter-8B5CF6?style=flat-square" alt="OpenRouter" />
+  <img src="https://img.shields.io/badge/Deployment-Vercel-black?style=flat-square&logo=vercel" alt="Vercel" />
+  <img src="https://img.shields.io/badge/Deployment-Render-46E3B7?style=flat-square&logo=render&logoColor=black" alt="Render" />
+</p>
 
-**Current testing status (25 October 2026):**
-- The backend integration suite passes independently: 79 tests passed.
-- The combined `unit_tests/` and `tests/` run still has an outstanding failure in `test_ai_plan_success`, where registration returns `409 Email is already registered`.
-- The combined test suite is not yet fully green. Investigate test database initialization and isolation before treating the branch as release-ready.
+---
 
-## Live Deployment
+## 🌌 Overview
 
-- **Frontend:** https://aura-autonomous-user-routine-assist.vercel.app
-- **Backend API:** https://aura-backend-cz7k.onrender.com
+**AURA (Autonomous User Routine Assistant)** is an AI-assisted productivity platform designed to bridge the gap between setting a goal and consistently executing the work required to achieve it.
 
-The backend may take time to wake up when hosted on an idle instance. Use the configured health endpoint or API documentation to verify availability.
+Instead of leaving users with a simple checklist, AURA aims to transform goals into structured plans, organize tasks, and support progress tracking through an integrated web application.
 
-## Main Capabilities
+The platform combines a modern web interface, a Python API, persistent data storage, AI-assisted planning, and a deterministic fallback planner.
 
-- **Authentication:** Registration, email verification, login, and token-based API authentication.
-- **Goal management:** Create and manage goals with titles, descriptions, priorities, deadlines, and the `continue_without_asking` preference.
-- **Task planning:** Generate a proposed plan for a goal, preview it, and save tasks.
-- **AI planning:** Use OpenRouter for AI-generated plans when configured.
-- **Rule-based fallback:** Generate a deterministic plan when the AI provider is unavailable or returns an error.
-- **Task persistence:** Store task status, priority, estimated duration, position, and optional deadlines.
-- **Idempotent plan saving:** Support idempotency keys to reduce duplicate writes when save requests are retried.
-- **Google integration:** OAuth connection flow and persisted integration status and credentials. Available Google scopes depend on the configured consent screen and the permissions granted by the user.
-- **API documentation:** FastAPI-generated OpenAPI documentation when enabled by the deployment configuration.
+### 🎯 The problem
 
-Feature availability can differ between local and deployed versions while development continues.
+People often struggle to translate ambitious goals into realistic daily actions. Generic task managers store tasks, but they do not necessarily help users determine what to do next.
 
-## Technology Stack
+### 💡 The AURA approach
+
+- **Define:** Capture a goal and its relevant constraints.
+- **Decompose:** Generate a structured, actionable plan.
+- **Organize:** Represent planned work as persistent tasks.
+- **Execute:** Manage tasks and update progress.
+- **Improve:** Expand toward adaptive scheduling, personalized recommendations, and agentic workflows.
+
+## 🚀 Live Application
+
+| Component | Link |
+|---|---|
+| 🌐 Frontend application | [Launch AURA](https://aura-autonomous-user-routine-assist.vercel.app) |
+| ⚙️ Backend API | [AURA Backend](https://aura-backend-cz7k.onrender.com) |
+| 📚 API documentation | [Swagger UI](https://aura-backend-cz7k.onrender.com/docs) |
+| 💻 Source code | [GitHub Repository](https://github.com/rudraksha-sh/AURA-Autonomous-User-Routine-Assistant-Agentic-Ai-System) |
+
+*Deployment availability and API documentation depend on the current hosting configuration. The backend may take time to wake up after inactivity.*
+
+## ✨ Features
+
+### 🔐 Authentication and account security
+
+- User registration and email verification.
+- Password-based authentication.
+- JWT-based API authentication.
+- Email OTP workflows for supported account-security operations.
+- Optional two-factor authentication workflows.
+
+### 🎯 Goal management
+
+- Create and manage goals.
+- Store goal descriptions, priorities, and deadlines.
+- Organize goal-related work into actionable tasks.
+- Maintain persistent goal and task records.
+
+### 🧠 AI-assisted planning
+
+- Generate proposed plans from natural-language goals.
+- Structure plans into individual tasks.
+- Capture task descriptions, priorities, estimated duration, and ordering.
+- Use OpenRouter when AI planning is configured.
+- Fall back to deterministic rule-based planning when appropriate.
+- Preview and save plans through supported API workflows.
+
+### 📋 Task management
+
+- Persist task status and priority.
+- Track estimated duration and task ordering.
+- Support optional task deadlines.
+- Associate tasks with their goals.
+- Use idempotency keys in supported plan-saving workflows to reduce duplicate writes during retries.
+
+### 🔗 Google integration
+
+- Google OAuth authorization flow.
+- Persisted integration status.
+- Support for configured Google account identity and Gmail, Calendar, and Drive scopes, subject to consent and implementation availability.
+
+### 🛠️ Developer experience
+
+- FastAPI-generated OpenAPI documentation.
+- SQLAlchemy database models.
+- Alembic database migrations.
+- Pytest unit and integration test suites.
+- Docker Compose configuration for local PostgreSQL.
+
+> **Implementation note:** Feature availability can differ between local and deployed versions. Planned capabilities below are roadmap items, not claims that those capabilities are already implemented.
+
+## 🏗️ System Architecture
+
+```mermaid
+flowchart TD
+    U["👤 User"] --> FE["Next.js Frontend"]
+    FE -->|"HTTPS / JSON"| API["FastAPI Backend"]
+
+    API --> AUTH["Authentication & Security"]
+    API --> GOALS["Goal & Task Services"]
+    API --> PLANNER["Planning Service"]
+
+    AUTH --> DB[("PostgreSQL")]
+    GOALS --> DB
+    PLANNER --> AI["OpenRouter AI Provider"]
+    PLANNER --> RULES["Rule-Based Fallback"]
+    PLANNER --> DB
+
+    API --> GOOGLE["Google OAuth Integration"]
+
+    FE -. "Hosted on Vercel" .-> HOST1["Frontend Deployment"]
+    API -. "Hosted on Render" .-> HOST2["Backend Deployment"]
+    DB -. "Hosted database" .-> HOST3["Neon PostgreSQL"]
+```
+
+### Request lifecycle
+
+1. A user submits a goal through the frontend.
+2. The frontend sends a request to the FastAPI backend.
+3. The backend validates the request and applies the relevant business rules.
+4. The planning service uses the configured AI provider or deterministic fallback.
+5. The generated plan is returned for preview and can be saved through supported workflows.
+6. Persisted goals and tasks can be retrieved for subsequent interactions.
+
+## 🧰 Technology Stack
 
 | Layer | Technologies |
 |---|---|
 | Frontend | Next.js, React, TypeScript |
-| Backend | Python, FastAPI, Pydantic |
-| Persistence | SQLAlchemy, Alembic, PostgreSQL |
-| Testing | Pytest, SQLite-backed unit tests, PostgreSQL-backed integration tests |
-| AI planning | OpenRouter with a rule-based fallback |
-| Authentication | JWT-based API authentication and email verification |
-| Google integration | Google OAuth |
-| Hosting | Vercel, Render, Neon PostgreSQL |
+| API | Python, FastAPI |
+| Validation | Pydantic |
+| ORM | SQLAlchemy |
+| Migrations | Alembic |
+| Database | PostgreSQL, SQLite for selected tests |
+| AI integration | OpenRouter |
+| Authentication | JWT, email verification, OTP workflows |
+| External integration | Google OAuth |
+| Frontend hosting | Vercel |
+| Backend hosting | Render |
+| Hosted database | Neon PostgreSQL |
+| Testing | Pytest |
+| Local database infrastructure | Docker Compose |
 
-## Architecture Overview
-
-```text
-Browser
-   |
-   v
-Next.js frontend (Vercel)
-   |
-   | HTTPS / JSON API
-   v
-FastAPI backend (Render)
-   |
-   +--------------------+
-   |                    |
-   v                    v
-PostgreSQL           OpenRouter
-(Neon)               (AI planning)
-   |
-   v
-Users, goals, tasks, integrations, agent runs
-
-Google OAuth
-   |
-   v
-Google authorization
-   |
-   v
-Backend callback
-   |
-   v
-Persisted integration
-```
-
-## Repository Layout
+## 📂 Repository Structure
 
 ```text
-backend/
-  app/
-    agents/          # Agent and planner service logic
-    api/routes/      # FastAPI route handlers
-    core/            # Configuration, security, dependencies
-    integrations/    # External provider integrations
-    models/          # SQLAlchemy models
-    schemas/         # Pydantic request/response schemas
-    services/        # Business logic
-  alembic/           # Database migrations
-  scripts/           # Development and data utilities
-  tests/             # Backend/API integration tests
-  unit_tests/        # Unit and SQLite-backed tests
-  docker-compose.yml # Local PostgreSQL service
-
-frontend/
-  app/               # Next.js routes and pages
-  services/          # API service clients
+AURA-Autonomous-User-Routine-Assistant-Agentic-Ai-System/
+│
+├── backend/
+│   ├── app/
+│   │   ├── agents/          # Agent and planner service logic
+│   │   ├── api/routes/      # FastAPI route handlers
+│   │   ├── core/            # Configuration and security
+│   │   ├── integrations/    # External service integrations
+│   │   ├── models/          # SQLAlchemy models
+│   │   ├── schemas/         # Request and response schemas
+│   │   └── services/        # Application business logic
+│   │
+│   ├── alembic/             # Database migrations
+│   ├── scripts/             # Development utilities
+│   ├── tests/               # API/integration tests
+│   ├── unit_tests/          # Unit and isolated workflow tests
+│   ├── docker-compose.yml   # Local PostgreSQL service
+│   └── requirements.txt
+│
+├── frontend/
+│   ├── app/                 # Next.js routes and pages
+│   └── services/            # API service clients
+│
+├── .gitignore
+└── README.md
 ```
 
-Exact filenames and directories may evolve as the project changes.
+*Directory contents may evolve as development continues.*
 
-## Local Development Setup
+## ⚙️ Getting Started
 
 ### Prerequisites
+
+Install the following tools:
 
 - Git
 - Python compatible with the backend dependencies
 - Node.js and npm compatible with the frontend
 - Docker Desktop with Docker Compose, or a separately configured PostgreSQL instance
-- An OpenRouter API key to test live AI planning
-- Google OAuth credentials to test Google integration
+- OpenRouter API key for live AI planning
+- Google OAuth credentials for Google integration testing
 
 ### 1. Clone the repository
 
-```powershell
+```bash
 git clone https://github.com/rudraksha-sh/AURA-Autonomous-User-Routine-Assistant-Agentic-Ai-System.git
+
 cd AURA-Autonomous-User-Routine-Assistant-Agentic-Ai-System
 ```
 
-### 2. Configure and start PostgreSQL
+### 2. Start PostgreSQL
 
-Open Docker Desktop and wait for the Docker Engine to start.
+Open Docker Desktop and wait for the Docker Engine to become available.
 
-From the backend directory:
+From the backend directory, run:
 
 ```powershell
 cd backend
@@ -135,52 +233,63 @@ docker compose up -d postgres
 docker ps
 ```
 
-The current Compose configuration maps host port `5433` to PostgreSQL port `5432` inside the container.
+The current Compose configuration maps host port `5433` to PostgreSQL's container port `5432`.
 
-The Compose service defines the `aura_db` database. The integration test configuration expects a separate `aura_test_db` database. Verify that the dedicated test database exists before running the integration tests.
+The Compose configuration defines `aura_db`. The integration test configuration expects a separate `aura_test_db`; verify that the dedicated test database exists before running the integration suite.
 
-Do not point test cleanup fixtures at a development or production database.
+**Important:** Never point test cleanup fixtures at a production or personal development database.
 
-### 3. Set up the backend
+### 3. Configure the backend
 
-From the `backend` directory:
+From `backend/`, create and activate a virtual environment:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
+
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-Create a local `.env` file using the repository's environment example, if available. Configure the exact variables required by `backend/app/core/config.py`.
+Create a local `.env` file using the repository's environment example, if available.
 
-Important configuration categories include:
+Configure the variables required by `backend/app/core/config.py`. These include:
 
-- `DATABASE_URL` — PostgreSQL or other supported database connection URL.
-- `JWT_SECRET_KEY` — secret used to sign authentication tokens.
-- `OPENROUTER_API_KEY` — AI provider API key.
-- `AI_PROVIDER` — AI provider selection.
-- `CORS_ORIGINS` — permitted frontend origins.
-- Email and OTP provider settings.
-- Google OAuth client ID, client secret, and redirect URI.
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | Database connection URL |
+| `JWT_SECRET_KEY` | JWT signing secret |
+| `OPENROUTER_API_KEY` | AI provider API key |
+| `AI_PROVIDER` | Configured AI provider |
+| `CORS_ORIGINS` | Permitted frontend origins |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+| `GOOGLE_REDIRECT_URI` | Google OAuth callback URL |
 
-Never commit `.env` files or share secret values.
+Email and OTP settings may also be required. Refer to the backend configuration and environment example for exact names and defaults.
 
-Apply database migrations from the backend directory:
+Never commit `.env` files, API keys, database passwords, or OAuth secrets.
+
+Apply database migrations:
 
 ```powershell
 alembic upgrade head
 ```
 
-Start the API:
+Start the backend:
 
 ```powershell
 uvicorn app.main:app --reload
 ```
 
-The local API is typically available at `http://127.0.0.1:8000`. If Swagger UI is enabled, open `http://127.0.0.1:8000/docs`.
+Typical local URLs:
 
-### 4. Set up the frontend
+- API: `http://127.0.0.1:8000`
+- Swagger UI: `http://127.0.0.1:8000/docs`
+
+Swagger UI is available only when enabled by the application configuration.
+
+### 4. Configure the frontend
 
 Open a second terminal at the repository root:
 
@@ -189,89 +298,157 @@ cd frontend
 npm install
 ```
 
-Configure the frontend's backend API base URL using the environment variable expected by the frontend configuration. For local development, the backend is typically available at `http://127.0.0.1:8000`.
+Configure the frontend API base URL using the environment variable expected by the frontend code.
 
-Start the frontend:
+For a local backend, the API is typically:
+
+```text
+http://127.0.0.1:8000
+```
+
+Start the development server:
 
 ```powershell
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+Open:
 
-## Testing
+[http://localhost:3000](http://localhost:3000)
 
-Run commands from the `backend` directory with the project's intended Python environment activated.
+## 🧪 Testing
 
-### Run unit tests
+Run tests from the `backend/` directory using the project's intended Python environment.
+
+### Unit tests
 
 ```powershell
 python -m pytest unit_tests/ -q
 ```
 
-### Run integration tests
+### Integration tests
 
 ```powershell
 python -m pytest tests/ -x -q --tb=short
 ```
 
-### Run both suites
+### Complete backend test run
 
 ```powershell
 python -m pytest unit_tests/ tests/ -x -q --tb=short
 ```
 
-The integration suite has passed independently with 79 tests. The combined run has an outstanding `test_ai_plan_success` failure caused by a duplicate-email response during registration. The database initialization and test isolation issue remains unresolved.
+**Known test status:** The integration suite has passed independently with 79 tests. The combined run currently has an outstanding `test_ai_plan_success` failure, where registration returns `409 Email is already registered`. The combined test database initialization/isolation issue still needs investigation.
 
-SQLite-backed tests do not, by themselves, verify PostgreSQL connectivity, live OpenRouter requests, Google OAuth, or deployed service availability.
+Do not treat the combined suite as fully passing until it completes successfully.
 
-Before merging or deploying, review the complete test output and verify relevant workflows in the browser.
+## 🗺️ Roadmap
 
-## Google OAuth Configuration
+The following are potential future advancements. They should be marked complete only after implementation and verification.
 
-For a deployed backend, the Google OAuth redirect URI must exactly match the URI configured in Google Cloud Console and the backend environment.
+### Phase 1 — Reliable core platform
 
-Current deployed callback URI:
+- [ ] Resolve combined-suite database initialization and isolation.
+- [ ] Establish repeatable local development and test setup.
+- [ ] Verify authentication and account recovery end to end.
+- [ ] Add CI checks for tests, formatting, and static analysis.
+- [ ] Document API error handling and environment configuration.
+
+### Phase 2 — Smarter goal planning
+
+- [ ] Break large goals into hierarchical milestones and subtasks.
+- [ ] Add dependency-aware task ordering.
+- [ ] Improve deadline feasibility checks and workload balancing.
+- [ ] Allow users to regenerate or edit individual tasks.
+- [ ] Add explicit plan approval before committing proposed changes.
+- [ ] Improve planner evaluation with repeatable benchmark scenarios.
+
+### Phase 3 — Adaptive productivity
+
+- [ ] Personalized planning based on user preferences.
+- [ ] Rescheduling when tasks are missed or priorities change.
+- [ ] Progress summaries and completion analytics.
+- [ ] Daily and weekly planning reviews.
+- [ ] Workload and capacity estimates.
+- [ ] Explainable prioritization and recommendations.
+
+### Phase 4 — Agentic workflows
+
+- [ ] Tool-using planning agents with explicit permission boundaries.
+- [ ] Multi-step workflows with observable execution state.
+- [ ] Human approval for consequential actions.
+- [ ] Retry policies, timeouts, and idempotent tool execution.
+- [ ] Execution traces and audit logs.
+- [ ] Safe recovery from failed or partially completed workflows.
+
+### Phase 5 — Integrations and intelligence
+
+- [ ] Calendar-aware planning and availability.
+- [ ] Configurable reminders and notifications.
+- [ ] Broader integration workflows for supported Google services.
+- [ ] Retrieval of relevant user-provided context where appropriate.
+- [ ] Evaluation of planner quality, latency, and cost.
+- [ ] User feedback loops for improving future plans.
+
+### Phase 6 — Production readiness
+
+- [ ] Automated CI/CD validation.
+- [ ] Structured logs, metrics, and error monitoring.
+- [ ] Rate-limit and abuse-resistance testing.
+- [ ] Database backup and recovery procedures.
+- [ ] Security review and dependency scanning.
+- [ ] Accessibility and responsive UI audits.
+- [ ] Performance and reliability testing.
+
+## 🔒 Security Principles
+
+AURA should follow these principles as it evolves:
+
+- Keep credentials in environment variables or an appropriate secret manager.
+- Use strong, unique production secrets.
+- Enforce authorization on protected resources.
+- Validate and constrain AI-generated content before persistence or execution.
+- Request only the external-service permissions required.
+- Require confirmation before consequential agent actions.
+- Keep sensitive tokens out of logs and source control.
+- Use HTTPS for deployed traffic.
+- Test rate limits, error handling, and authorization boundaries.
+
+## 🤝 Contributing
+
+Contributions and focused improvements are welcome.
+
+1. Fork the repository or create a feature branch.
+2. Pull the latest changes before beginning work.
+3. Make a small, focused change.
+4. Run the relevant tests.
+5. Review your changes with `git diff` and `git status`.
+6. Commit with a descriptive message.
+7. Open a pull request describing the change and its verification.
+
+Suggested branch naming:
 
 ```text
-https://aura-backend-cz7k.onrender.com/api/integrations/google/callback
+feature/goal-milestones
+fix/test-database-isolation
+docs/api-setup-guide
 ```
 
-Also verify that:
+## 📌 Project Links
 
-- The OAuth consent screen is configured for the intended users.
-- Required scopes are configured and consented to.
-- The backend's Google client ID and client secret are set in the hosting environment.
-- The frontend origin is included in backend CORS configuration where required.
-- Access tokens, refresh tokens, and client secrets are never committed to Git.
+- **Live application:** https://aura-autonomous-user-routine-assist.vercel.app
+- **Backend API:** https://aura-backend-cz7k.onrender.com
+- **API documentation:** https://aura-backend-cz7k.onrender.com/docs
+- **GitHub repository:** https://github.com/rudraksha-sh/AURA-Autonomous-User-Routine-Assistant-Agentic-Ai-System
 
-## Deployment Notes
+## 📜 License
 
-- **Frontend:** Vercel.
-- **Backend:** Render.
-- **Database:** Neon PostgreSQL.
-- Configure environment variables in hosting dashboards rather than committing production secrets.
-- Apply Alembic migrations as part of a controlled backend release.
-- After deployment, verify registration, email verification, login, goal creation, plan preview and save, task persistence, and Google connection status.
+No license has been specified in the repository documentation. Add a `LICENSE` file before distributing the project under a particular open-source license.
 
-## Security Notes
+---
 
-- Never commit `.env` files, access tokens, refresh tokens, API keys, database passwords, or OAuth client secrets.
-- Use a strong, unique production JWT secret.
-- Restrict CORS to trusted frontend origins.
-- Use HTTPS for deployed frontend and backend traffic.
-- Grant only the Google scopes the application requires.
-- Rotate credentials immediately if they are accidentally exposed.
-
-## Development Workflow
-
-1. Pull the latest changes before starting work.
-2. Create a feature branch for significant changes.
-3. Make focused changes and run relevant tests.
-4. Inspect `git status` and review the diff before committing.
-5. Keep local backups and Python cache files out of commits unless intentionally required.
-6. Push the branch and review changes before merging or deployment.
-
-## License
-
-No license information is currently specified. Add a `LICENSE` file and update this section if the project is released under a particular license.
+<p align="center">
+  <strong>Plan with purpose. Execute with clarity. Improve continuously.</strong>
+  <br />
+  Built as AURA evolves toward a more capable autonomous routine assistant.
+</p>
