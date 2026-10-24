@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -8,6 +9,7 @@ type GoalFormProps = {
     title: string;
     description: string | null;
     priority: string;
+    continue_without_asking: boolean;
   }) => Promise<void>;
   isSubmitting: boolean;
 };
@@ -20,6 +22,8 @@ export function GoalForm({
   const [titleError, setTitleError] = React.useState<string | null>(null);
   const [description, setDescription] = React.useState("");
   const [priority, setPriority] = React.useState("medium");
+  const [continueWithoutAsking, setContinueWithoutAsking] =
+    React.useState(false);
 
   async function handleSubmit(
     event: React.FormEvent<HTMLFormElement>
@@ -36,9 +40,10 @@ export function GoalForm({
         title: title.trim(),
         description: description.trim() || null,
         priority,
+        continue_without_asking: continueWithoutAsking,
       });
     } catch {
-      // The parent displays the API error and the entered values stay available to retry.
+      // Keep entered values available if goal creation fails.
       return;
     }
 
@@ -46,6 +51,7 @@ export function GoalForm({
     setTitleError(null);
     setDescription("");
     setPriority("medium");
+    setContinueWithoutAsking(false);
   }
 
   return (
@@ -80,8 +86,13 @@ export function GoalForm({
             aria-describedby={titleError ? "goal-title-error" : undefined}
             className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
           />
+
           {titleError && (
-            <p id="goal-title-error" role="alert" className="mt-2 text-sm text-rose-600">
+            <p
+              id="goal-title-error"
+              role="alert"
+              className="mt-2 text-sm text-rose-600"
+            >
               {titleError}
             </p>
           )}
@@ -123,6 +134,33 @@ export function GoalForm({
             <option value="medium">Medium</option>
             <option value="high">High</option>
           </select>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <label
+            htmlFor="continue-without-asking"
+            className="flex cursor-pointer items-start gap-3"
+          >
+            <input
+              id="continue-without-asking"
+              type="checkbox"
+              checked={continueWithoutAsking}
+              onChange={(event) =>
+                setContinueWithoutAsking(event.target.checked)
+              }
+              className="mt-1 size-4 shrink-0 rounded border-slate-300 accent-slate-900"
+            />
+
+            <span>
+              <span className="block text-sm font-semibold text-slate-900">
+                Continue without asking me
+              </span>
+              <span className="mt-1 block text-sm leading-5 text-slate-600">
+                Automatically generate milestones and tasks, save the plan,
+                and schedule tasks without asking me to approve each step.
+              </span>
+            </span>
+          </label>
         </div>
 
         <button

@@ -1,5 +1,4 @@
 import { expireAccessToken, getAccessToken } from "@/services/auth-storage";
-import { ApiError } from "@/services/auth";
 import type {
   CreateGoalInput,
   Goal,
@@ -7,6 +6,13 @@ import type {
 } from "@/types/goal";
 
 const API_BASE_URL = "";
+
+export class GoalApiError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = "GoalApiError";
+  }
+}
 
 async function fetchJson<T>(
   url: string,
@@ -16,30 +22,41 @@ async function fetchJson<T>(
 
   if (!token) {
     expireAccessToken();
-    throw new ApiError("Authentication required.", 401);
+    throw new GoalApiError("Authentication required.", 401);
   }
 
-  const response = await fetch(`${API_BASE_URL}${url}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...options.headers,
-    },
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}${url}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...options.headers,
+      },
+    });
+  } catch {
+    throw new GoalApiError(
+      "Could not reach AURA. Check your connection and retry.",
+      0
+    );
+  }
 
   if (!response.ok) {
-    if (response.status === 401) expireAccessToken();
-    const errorBody = await response.json().catch(() => null);
+    if (response.status === 401) {
+      expireAccessToken();
+    }
 
+    const body = await response.json().catch(() => null);
     const message =
-      errorBody &&
-      typeof errorBody === "object" &&
-      "detail" in errorBody
-        ? JSON.stringify(errorBody.detail)
-        : `Request failed with status ${response.status}`;
+      body &&
+      typeof body === "object" &&
+      "detail" in body
+        ? String(body.detail)
+        : `Request failed with status ${response.status}.`;
 
-    throw new ApiError(message, response.status);
+    throw new GoalApiError(message, response.status);
   }
 
   if (response.status === 204) {
@@ -49,39 +66,28 @@ async function fetchJson<T>(
   return response.json() as Promise<T>;
 }
 
-export async function getGoals(): Promise<Goal[]> {
-  return fetchJson<Goal[]>("/api/goals", {
-    method: "GET",
-  });
-}
+export const getGoals = () =>
+  fetchJson<Goal[]>("/api/goals");
 
-export async function getGoal(goalId: number): Promise<Goal> {
-  return fetchJson<Goal>(`/api/goals/${goalId}`, {
-    method: "GET",
-  });
-}
+export const getGoal = (goalId: number) =>
+  fetchJson<Goal>(`/api/goals/${goalId}`);
 
-export async function createGoal(
-  data: CreateGoalInput
-): Promise<Goal> {
-  return fetchJson<Goal>("/api/goals", {
+export const createGoal = (data: CreateGoalInput) =>
+  fetchJson<Goal>("/api/goals", {
     method: "POST",
     body: JSON.stringify(data),
   });
-}
 
-export async function updateGoal(
+export const updateGoal = (
   goalId: number,
   data: UpdateGoalInput
-): Promise<Goal> {
-  return fetchJson<Goal>(`/api/goals/${goalId}`, {
+) =>
+  fetchJson<Goal>(`/api/goals/${goalId}`, {
     method: "PATCH",
     body: JSON.stringify(data),
   });
-}
 
-export async function deleteGoal(goalId: number): Promise<void> {
-  return fetchJson<void>(`/api/goals/${goalId}`, {
+export const deleteGoal = (goalId: number) =>
+  fetchJson<void>(`/api/goals/${goalId}`, {
     method: "DELETE",
   });
-}

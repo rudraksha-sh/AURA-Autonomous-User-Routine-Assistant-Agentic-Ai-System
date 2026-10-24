@@ -1,4 +1,4 @@
-import time
+﻿import time
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -321,15 +321,13 @@ def test_google_callback_persists_integration(
             "code": "mock-authorization-code",
             "state": state,
         },
+        follow_redirects=False,
     )
 
-    assert response.status_code == 200
-
-    assert response.json() == {
-        "status": "connected",
-        "provider": "google",
-        "provider_account_id": "google-account-123",
-    }
+    assert response.status_code == 303
+    assert response.headers["location"].startswith(
+        "http://localhost:3000/settings?google=connected"
+    )
 
     with Session(test_engine) as db:
         integration = db.scalar(
@@ -360,3 +358,4 @@ def test_google_callback_persists_integration(
             "openid "
             "https://www.googleapis.com/auth/gmail.readonly"
         )
+

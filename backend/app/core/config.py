@@ -7,6 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     app_name: str = "AURA"
     environment: str = "development"
+    frontend_url: str = "http://localhost:3000"
 
     database_url: str
 
