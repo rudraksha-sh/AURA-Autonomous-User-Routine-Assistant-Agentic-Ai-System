@@ -57,6 +57,7 @@ export default function GoalsPage() {
     title: string;
     description: string | null;
     priority: string;
+    continue_without_asking: boolean;
   }) {
     try {
       setIsCreating(true);

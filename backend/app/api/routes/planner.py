@@ -28,7 +28,7 @@ def preview_goal_plan(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Goal not found")
 
     user = db.get(User, user_id)
-    use_ai = user.use_ai_planning if user else True
+    use_ai = user.use_ai_planning if user else False
 
     goal_context = f"Goal title: {goal.title}\nGoal description: {goal.description or 'Not provided'}"
     plan = generate_ai_goal_plan(goal_context, use_ai=use_ai)
