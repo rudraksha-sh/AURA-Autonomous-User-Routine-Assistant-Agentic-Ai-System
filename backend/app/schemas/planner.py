@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
 
 from app.schemas.task import TaskResponse
 
@@ -32,11 +32,12 @@ class ProposedTask(BaseModel):
 
     @field_validator("deadline")
     @classmethod
-    def deadline_must_not_be_in_the_past(cls, value: datetime | None) -> datetime | None:
+    def deadline_must_not_be_in_the_past(cls, value: datetime | None, info: ValidationInfo) -> datetime | None:
         if value is None:
             return None
         normalized = value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
-        if normalized < datetime.now(timezone.utc):
+        earliest = (info.context or {}).get("earliest_deadline") or datetime.now(timezone.utc)
+        if normalized < earliest:
             raise ValueError("Suggested deadline must be in the future")
         return value
 

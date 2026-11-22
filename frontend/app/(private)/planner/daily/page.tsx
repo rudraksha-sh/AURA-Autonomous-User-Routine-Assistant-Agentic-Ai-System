@@ -12,6 +12,7 @@ import {
   PlannerApiError,
   previewDailySchedule,
   savePlanningPreferences,
+  resetPlanningPreferences,
   simulateDailySchedule,
 } from "@/services/planner";
 import type { DailySchedule, PlanningPreferences, ScheduleEntryProposal, SchedulePreview, WhatIfResult } from "@/types/planner";
@@ -127,6 +128,19 @@ export default function DailyPlannerPage() {
     } finally { setSavingSettings(false); }
   }
 
+  async function resetPreferences() {
+    if (!window.confirm("Reset your saved working hours and schedule preferences?")) return;
+    setSavingSettings(true); setError(null); setNotice(null);
+    try {
+      await resetPlanningPreferences();
+      const defaults = await getPlanningPreferences();
+      setPreferences({ ...defaults, workday_start: defaults.workday_start.slice(0, 5), workday_end: defaults.workday_end.slice(0, 5) });
+      setNotice("Planning preferences reset to defaults.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to reset preferences.");
+    } finally { setSavingSettings(false); }
+  }
+
   async function approve() {
     if (!entries.length) return;
     if (!window.confirm(`Approve this ${entries.length}-session schedule for ${targetDate}?`)) return;
@@ -183,6 +197,8 @@ export default function DailyPlannerPage() {
                 <div><label htmlFor="planning-break" className="block text-xs font-medium text-slate-600">Break between sessions (minutes)</label><input id="planning-break" type="number" min={0} max={60} value={preferences.break_minutes} onChange={(event) => setPreferences((current) => ({ ...current, break_minutes: Number(event.target.value) }))} required className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></div>
                 <div><label htmlFor="planning-capacity" className="block text-xs font-medium text-slate-600">Daily work capacity (minutes)</label><input id="planning-capacity" type="number" min={30} max={720} value={preferences.daily_capacity_minutes} onChange={(event) => setPreferences((current) => ({ ...current, daily_capacity_minutes: Number(event.target.value) }))} required className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></div>
                 <button type="submit" disabled={savingSettings || loading} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 sm:col-span-2 lg:col-span-3">{savingSettings ? <Loader2 aria-hidden="true" className="size-4 animate-spin" /> : <Save aria-hidden="true" className="size-4" />}{savingSettings ? "Saving…" : "Save preferences"}</button>
+                <button type="button" onClick={resetPreferences} disabled={savingSettings || loading}
+                  className="justify-self-start text-sm font-medium text-slate-700 underline focus-visible:outline-2 disabled:opacity-50 sm:col-span-2 lg:col-span-3">Reset saved preferences</button>
               </form>
             </details>
 

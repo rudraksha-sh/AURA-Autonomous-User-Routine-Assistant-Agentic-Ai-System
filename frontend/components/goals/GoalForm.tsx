@@ -153,11 +153,10 @@ export function GoalForm({
 
             <span>
               <span className="block text-sm font-semibold text-slate-900">
-                Continue without asking me
+                Create tasks and schedule this goal once
               </span>
               <span className="mt-1 block text-sm leading-5 text-slate-600">
-                Automatically generate milestones and tasks, save the plan,
-                and schedule tasks without asking me to approve each step.
+                Automatically create tasks and attempt to schedule them when you submit this new goal.
               </span>
             </span>
           </label>

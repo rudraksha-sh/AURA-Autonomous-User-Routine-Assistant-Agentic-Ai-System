@@ -17,6 +17,7 @@ connect_args = (
 engine = create_engine(
     settings.database_url,
     pool_pre_ping=True,
+    hide_parameters=True,
     connect_args=connect_args,
 )
 

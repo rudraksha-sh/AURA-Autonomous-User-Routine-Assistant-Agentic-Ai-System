@@ -1,6 +1,7 @@
 from typing import Literal
 
-from pydantic import Field, model_validator
+from cryptography.fernet import Fernet
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,6 +34,8 @@ class Settings(BaseSettings):
 
     cors_origins: str = "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001"
     
+    integration_token_key: SecretStr = SecretStr("")
+
     google_client_id: str
     google_client_secret: str
     google_redirect_uri: str
@@ -45,6 +48,12 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def require_strong_production_jwt_secret(self):
+        key = self.integration_token_key.get_secret_value()
+        if key:
+            try:
+                Fernet(key.encode())
+            except ValueError:
+                raise ValueError("INTEGRATION_TOKEN_KEY must be a valid Fernet key") from None
         if self.environment.lower() in {"production", "prod"}:
             if len(self.jwt_secret_key.encode("utf-8")) < 32:
                 raise ValueError("JWT_SECRET_KEY must be at least 32 bytes in production")

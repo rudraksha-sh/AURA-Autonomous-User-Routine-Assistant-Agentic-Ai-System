@@ -3,6 +3,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from sqlalchemy import inspect, text
 
+from app.api.routes.autonomy import router as autonomy_router
+from app.api.routes.workflows import router as workflows_router
 from app.api.routes.tasks import router as tasks_router
 
 from app.api.routes.auth import router as auth_router
@@ -80,6 +82,8 @@ app.add_middleware(
 
 app.include_router(ai_router)
 app.include_router(planner_router)
+app.include_router(workflows_router)
+app.include_router(autonomy_router)
 app.include_router(daily_planner_router)
 app.include_router(assistant_router)
 

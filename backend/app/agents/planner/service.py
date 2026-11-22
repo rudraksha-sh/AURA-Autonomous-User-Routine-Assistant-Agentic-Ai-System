@@ -1,6 +1,7 @@
 import logging
 from typing import Protocol
 
+from langchain_core.messages import HumanMessage, SystemMessage, convert_to_openai_messages
 from openai import OpenAI
 from pydantic import BaseModel, Field
 
@@ -43,20 +44,17 @@ class OpenRouterGoalPlanner:
     def generate(self, user_goal: str) -> ProviderGoalPlan:
         response = self.client.chat.completions.create(
             model=settings.ai_model,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {
-                    "role": "user",
-                    "content": (
-                        build_goal_prompt(user_goal)
-                        + "\\nReturn a valid JSON object matching this structure: "
-                        + '{"title":"...", "description":"...", "priority":"medium", '
-                        + '"tasks":[{"title":"...", "description":"...", '
-                        + '"priority":"medium", "estimated_minutes":30, '
-                        + '"position":1, "deadline_offset_days":1}]}'
-                    ),
-                },
-            ],
+            messages=convert_to_openai_messages([
+                SystemMessage(content=SYSTEM_PROMPT),
+                HumanMessage(content=(
+                    build_goal_prompt(user_goal)
+                    + "\nReturn a valid JSON object matching this structure: "
+                    + '{"title":"...", "description":"...", "priority":"medium", '
+                    + '"tasks":[{"title":"...", "description":"...", '
+                    + '"priority":"medium", "estimated_minutes":30, '
+                    + '"position":1, "deadline_offset_days":1}]}'
+                )),
+            ]),
             response_format={"type": "json_object"},
         )
         content = response.choices[0].message.content

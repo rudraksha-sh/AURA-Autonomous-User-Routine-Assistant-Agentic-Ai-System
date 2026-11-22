@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.agents.memory.agent import forget_preferences
 from app.core.security import get_current_user_id
 from app.db.session import get_db
 from app.schemas.daily_planner import (
@@ -64,6 +65,11 @@ def save_preferences(
     db: Session = Depends(get_db),
 ):
     return update_preferences(db, user_id, preferences_data)
+
+
+@router.delete("/preferences", status_code=status.HTTP_204_NO_CONTENT)
+def reset_preferences(user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)):
+    forget_preferences(db, user_id)
 
 
 @router.post("/schedules/preview", response_model=SchedulePreviewResponse)

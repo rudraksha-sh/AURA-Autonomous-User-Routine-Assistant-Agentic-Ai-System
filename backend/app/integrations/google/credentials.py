@@ -5,6 +5,7 @@ from google.oauth2.credentials import Credentials
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.integrations.google.token_storage import TokenStorageError, protect_token, reveal_token
 from app.models.integration import Integration
 from app.services.integration_service import get_google_integration
 
@@ -33,9 +34,15 @@ def build_google_credentials(
             "Google access token is missing"
         )
 
+    try:
+        token = reveal_token(integration.access_token)
+        refresh_token = reveal_token(integration.refresh_token)
+    except TokenStorageError as exc:
+        raise GoogleCredentialsError("Could not load Google credentials") from exc
+
     return Credentials(
-        token=integration.access_token,
-        refresh_token=integration.refresh_token,
+        token=token,
+        refresh_token=refresh_token,
         token_uri="https://oauth2.googleapis.com/token",
         client_id=settings.google_client_id,
         client_secret=settings.google_client_secret,
@@ -110,7 +117,8 @@ def get_user_google_credentials(
             "Google refresh returned no access token"
         )
 
-    integration.access_token = credentials.token
+    integration.access_token = protect_token(credentials.token)
+    integration.refresh_token = protect_token(credentials.refresh_token)
     integration.token_expiry = credentials.expiry
 
     db.commit()

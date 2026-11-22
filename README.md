@@ -55,6 +55,14 @@ People often struggle to translate ambitious goals into realistic daily actions.
 - **Execute:** Manage tasks and update progress.
 - **Improve:** Expand toward adaptive scheduling, personalized recommendations, and agentic workflows.
 
+## Agent workflows
+
+Open **Planner → Agent workflows** to preview and approve a goal plan, estimate a schedule, simulate a shorter workday or compare a revised plan. Local task creation requires individual approval or an explicitly selected goal-scoped grant. The workspace shows verification receipts and supports undo for unchanged task batches.
+
+- [Architecture audit](docs/ARCHITECTURE_AUDIT.md) and [architecture and API](docs/ARCHITECTURE.md)
+- [Agent catalog](docs/AGENT_CATALOG.md), [permissions](docs/PERMISSIONS.md), and [rollback](docs/ROLLBACK.md)
+- [Setup and deployment](docs/SETUP.md), [test report](docs/TEST_REPORT.md), and [cleanup report](docs/CLEANUP_REPORT.md)
+
 ## 🚀 Live Application
 
 | Component | Link |
@@ -210,8 +218,8 @@ Install the following tools:
 - Python compatible with the backend dependencies
 - Node.js and npm compatible with the frontend
 - Docker Desktop with Docker Compose, or a separately configured PostgreSQL instance
-- OpenRouter API key for live AI planning
-- Google OAuth credentials for Google integration testing
+- Optional OpenRouter API key for live AI planning
+- Optional Google OAuth credentials for live Google connections
 
 ### 1. Clone the repository
 
@@ -235,7 +243,7 @@ docker ps
 
 The current Compose configuration maps host port `5433` to PostgreSQL's container port `5432`.
 
-The Compose configuration defines `aura_db`. The integration test configuration expects a separate `aura_test_db`; verify that the dedicated test database exists before running the integration suite.
+Compose defines the local development database `aura_db`. Tests use isolated SQLite by default. See the setup guide for optional PostgreSQL testing in a disposable loopback database.
 
 **Important:** Never point test cleanup fixtures at a production or personal development database.
 
@@ -295,7 +303,7 @@ Open a second terminal at the repository root:
 
 ```powershell
 cd frontend
-npm install
+npm ci
 ```
 
 Configure the frontend API base URL using the environment variable expected by the frontend code.
@@ -338,9 +346,7 @@ python -m pytest tests/ -x -q --tb=short
 python -m pytest unit_tests/ tests/ -x -q --tb=short
 ```
 
-**Known test status:** The integration suite has passed independently with 79 tests. The combined run currently has an outstanding `test_ai_plan_success` failure, where registration returns `409 Email is already registered`. The combined test database initialization/isolation issue still needs investigation.
-
-Do not treat the combined suite as fully passing until it completes successfully.
+See the [test report](docs/TEST_REPORT.md) for results from this branch.
 
 ## 🗺️ Roadmap
 
@@ -348,7 +354,7 @@ The following are potential future advancements. They should be marked complete 
 
 ### Phase 1 — Reliable core platform
 
-- [ ] Resolve combined-suite database initialization and isolation.
+- [x] Isolate combined-suite database initialization.
 - [ ] Establish repeatable local development and test setup.
 - [ ] Verify authentication and account recovery end to end.
 - [ ] Add CI checks for tests, formatting, and static analysis.
@@ -360,7 +366,7 @@ The following are potential future advancements. They should be marked complete 
 - [ ] Add dependency-aware task ordering.
 - [ ] Improve deadline feasibility checks and workload balancing.
 - [ ] Allow users to regenerate or edit individual tasks.
-- [ ] Add explicit plan approval before committing proposed changes.
+- [x] Add explicit plan approval before committing proposed changes.
 - [ ] Improve planner evaluation with repeatable benchmark scenarios.
 
 ### Phase 3 — Adaptive productivity
@@ -376,7 +382,7 @@ The following are potential future advancements. They should be marked complete 
 
 - [ ] Tool-using planning agents with explicit permission boundaries.
 - [ ] Multi-step workflows with observable execution state.
-- [ ] Human approval for consequential actions.
+- [x] Require approval or a scoped grant for workflow task creation.
 - [ ] Retry policies, timeouts, and idempotent tool execution.
 - [ ] Execution traces and audit logs.
 - [ ] Safe recovery from failed or partially completed workflows.

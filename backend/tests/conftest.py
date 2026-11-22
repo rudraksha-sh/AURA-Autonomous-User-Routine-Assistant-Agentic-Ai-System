@@ -1,73 +1,62 @@
-import os
-import sys
 import logging
+import os
 import re
-from pathlib import Path
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, make_url, text
+from sqlalchemy.pool import StaticPool
 
-
-BACKEND_DIR = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(BACKEND_DIR))
-
-os.environ["DATABASE_URL"] = (
-    "postgresql+psycopg://aura_user:aura_password@localhost:5433/aura_test_db"
-)
-os.environ["JWT_SECRET_KEY"] = "test-secret-key"
-os.environ["OPENROUTER_API_KEY"] = "test-key"
-
-
+from app.core import rate_limit_dependencies as limits
+from app.core.rate_limit import RateLimiter
+from app.db.session import Base, SessionLocal
 from app.main import app
 
-from app.core.rate_limit_dependencies import (
-    ai_limiter,
-    login_limiter,
-    register_limiter,
-    verify_email_limiter,
-)
+
+postgres_url = os.environ.get("AURA_TEST_POSTGRES_URL")
+schema = f"aura_test_{uuid4().hex}"
+if postgres_url:
+    parsed = make_url(postgres_url)
+    if (parsed.drivername != "postgresql+psycopg" or parsed.host not in {"127.0.0.1", "::1"}
+            or parsed.database != "aura_workflow_test" or not parsed.port or parsed.query):
+        raise RuntimeError("Use a loopback PostgreSQL scratch database named aura_workflow_test.")
+    test_engine = create_engine(parsed, connect_args={"options": f"-csearch_path={schema} -c timezone=UTC"}, hide_parameters=True)
+else:
+    test_engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool,
+    )
 
 
-TEST_DATABASE_URL = os.environ["DATABASE_URL"]
-
-test_engine = create_engine(
-    TEST_DATABASE_URL,
-    pool_pre_ping=True,
-)
+@pytest.fixture(scope="session", autouse=True)
+def test_namespace():
+    if postgres_url:
+        with test_engine.begin() as conn:
+            conn.execute(text(f"CREATE SCHEMA {schema}"))
+    yield
+    if postgres_url:
+        with test_engine.begin() as conn:
+            conn.execute(text(f"DROP SCHEMA {schema} CASCADE"))
+    test_engine.dispose()
 
 
 @pytest.fixture(autouse=True)
-def reset_rate_limiters():
-    login_limiter.reset()
-    register_limiter.reset()
-    ai_limiter.reset()
-    verify_email_limiter.reset()
-
+def isolate_api_tests(monkeypatch):
+    Base.metadata.drop_all(test_engine)
+    Base.metadata.create_all(test_engine)
+    monkeypatch.setitem(SessionLocal.kw, "bind", test_engine)
+    limiters = [value for value in vars(limits).values() if isinstance(value, RateLimiter)]
+    for limiter in limiters:
+        limiter.reset()
     yield
-
-    login_limiter.reset()
-    register_limiter.reset()
-    ai_limiter.reset()
-    verify_email_limiter.reset()
-
-
-@pytest.fixture(autouse=True)
-def clean_database():
-    with test_engine.begin() as connection:
-        connection.execute(
-            text(
-                "TRUNCATE TABLE agent_runs, tasks, goals, users, integrations "
-                "RESTART IDENTITY CASCADE"
-            )
-        )
-
-    yield
+    for limiter in limiters:
+        limiter.reset()
 
 
 @pytest.fixture
 def client():
-    return TestClient(app, raise_server_exceptions=False)
+    with TestClient(app, raise_server_exceptions=False) as test_client:
+        yield test_client
 
 
 class _OtpLogCapture(logging.Handler):

@@ -277,9 +277,9 @@ def test_ai_plan_creates_agent_run(client):
     # so verify it through PostgreSQL.
     from sqlalchemy import text
 
-    from app.db.session import engine
+    from tests.conftest import test_engine
 
-    with engine.connect() as connection:
+    with test_engine.connect() as connection:
         result = connection.execute(
             text(
                 """

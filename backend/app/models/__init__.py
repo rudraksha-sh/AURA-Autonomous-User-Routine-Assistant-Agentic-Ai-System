@@ -1,3 +1,5 @@
+from app.models.autonomy import AutonomyGrant
+from app.models.workflow import WorkflowRun
 from app.models.agent_run import AgentRun
 from app.models.goal import Goal
 from app.models.task import Task

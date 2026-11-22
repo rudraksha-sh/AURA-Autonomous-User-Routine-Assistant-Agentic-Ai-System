@@ -4,6 +4,7 @@ import io
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app.models.autonomy import AutonomyGrant
 from app.models.agent_run import AgentRun
 from app.models.goal import Goal
 from app.models.integration import Integration
@@ -13,6 +14,10 @@ from app.models.planning import DailySchedule, ScheduleEntry, UserPlanningPrefer
 from app.models.task import Task
 from app.models.task_detail import TaskActivity, TaskSubtask
 from app.models.user import User
+from app.schemas.autonomy import GrantResponse
+from app.schemas.daily_planner import PlanningPreferencesResponse
+from app.schemas.workflow import WorkflowResponse
+from app.models.workflow import WorkflowRun
 
 
 def export_user_data(db: Session, user_id: int) -> dict:
@@ -20,7 +25,15 @@ def export_user_data(db: Session, user_id: int) -> dict:
     tasks = list(db.scalars(
         select(Task).join(Goal, Goal.id == Task.goal_id).where(Goal.user_id == user_id).order_by(Goal.id, Task.position, Task.id)
     ).all())
+    preferences = db.get(UserPlanningPreference, user_id)
+    workflows = db.scalars(select(WorkflowRun).where(WorkflowRun.user_id == user_id))
+    grants = db.scalars(select(AutonomyGrant).where(AutonomyGrant.user_id == user_id))
     return {
+        "planning_preferences": (
+            PlanningPreferencesResponse.model_validate(preferences).model_dump(mode="json") if preferences else None
+        ),
+        "workflows": [WorkflowResponse.model_validate(row).model_dump(mode="json") for row in workflows],
+        "autonomy_grants": [GrantResponse.model_validate(row).model_dump(mode="json") for row in grants],
         "goals": [{
             "id": goal.id, "title": goal.title, "description": goal.description, "status": goal.status,
             "priority": goal.priority, "deadline": goal.deadline.isoformat() if goal.deadline else None,
@@ -61,6 +74,8 @@ def delete_user_account(db: Session, user_id: int) -> str | None:
     db.execute(delete(TaskActivity).where(TaskActivity.task_id.in_(owned_task_ids)))
     db.execute(delete(TaskSubtask).where(TaskSubtask.task_id.in_(owned_task_ids)))
     db.execute(delete(DailySchedule).where(DailySchedule.user_id == user_id))
+    db.execute(delete(AutonomyGrant).where(AutonomyGrant.user_id == user_id))
+    db.execute(delete(WorkflowRun).where(WorkflowRun.user_id == user_id))
     db.execute(delete(AgentRun).where(AgentRun.user_id == user_id))
     db.execute(delete(Task).where(Task.id.in_(owned_task_ids)))
     db.execute(delete(Goal).where(Goal.user_id == user_id))

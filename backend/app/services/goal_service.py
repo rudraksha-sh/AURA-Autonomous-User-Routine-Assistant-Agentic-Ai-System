@@ -1,7 +1,9 @@
-﻿from sqlalchemy import select
+from sqlalchemy import case, select, update
 from sqlalchemy.orm import Session
 
+from app.models.autonomy import AutonomyGrant
 from app.models.goal import Goal
+from app.models.workflow import WorkflowRun
 from app.schemas.goal import GoalCreate, GoalUpdate
 
 
@@ -73,5 +75,11 @@ def delete_goal(
     db: Session,
     goal: Goal,
 ) -> None:
+    db.execute(update(WorkflowRun).where(WorkflowRun.goal_id == goal.id, WorkflowRun.user_id == goal.user_id)
+               .values(goal_id=None, checkpoint=[], revision=WorkflowRun.revision + 1,
+                       status=case((WorkflowRun.status.in_(("awaiting_approval", "paused")), "cancelled"),
+                                   else_=WorkflowRun.status)))
+    db.execute(update(AutonomyGrant).where(AutonomyGrant.goal_id == goal.id, AutonomyGrant.user_id == goal.user_id)
+               .values(goal_id=None, status="revoked"))
     db.delete(goal)
     db.commit()

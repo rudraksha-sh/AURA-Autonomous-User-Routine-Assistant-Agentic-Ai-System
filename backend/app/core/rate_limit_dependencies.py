@@ -5,6 +5,7 @@ from app.core.rate_limit import RateLimiter
 
 login_limiter = RateLimiter(max_requests=5, window_seconds=60)
 register_limiter = RateLimiter(max_requests=5, window_seconds=60)
+workflow_limiter = RateLimiter(max_requests=20, window_seconds=60)
 ai_limiter = RateLimiter(max_requests=10, window_seconds=60)
 verify_email_limiter = RateLimiter(max_requests=5, window_seconds=300)
 resend_verification_limiter = RateLimiter(max_requests=3, window_seconds=300)

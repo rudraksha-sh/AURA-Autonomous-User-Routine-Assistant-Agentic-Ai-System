@@ -126,9 +126,15 @@ def preview_daily_schedule(
     task_ids: set[int] | None = None,
 ) -> SchedulePreviewResponse:
     preferences = get_preferences(db, user_id)
+    return schedule_tasks(preferences, target_date, _owned_pending_tasks(db, user_id, task_ids))
+
+
+def schedule_tasks(
+    preferences: PlanningPreferencesResponse, target_date: date, tasks, *,
+    reserved: tuple[ScheduledTaskProposal, ...] = (),
+) -> SchedulePreviewResponse:
     zone = ZoneInfo(preferences.timezone_name)
-    tasks = _owned_pending_tasks(db, user_id, task_ids)
-    tasks.sort(key=lambda task: (
+    tasks = sorted(tasks, key=lambda task: (
         _deadline_rank(task, target_date, preferences.timezone_name)[0],
         _priority_rank(task.priority),
         _utc_timestamp(task.deadline),
@@ -140,7 +146,14 @@ def preview_daily_schedule(
     window_start = datetime.combine(target_date, preferences.workday_start, tzinfo=zone)
     window_end = datetime.combine(target_date, preferences.workday_end, tzinfo=zone)
     cursor = window_start
-    capacity_left = preferences.daily_capacity_minutes
+    available_capacity = max(0, preferences.daily_capacity_minutes - sum(item.duration_minutes for item in reserved))
+    capacity_left = available_capacity
+    break_time = timedelta(minutes=preferences.break_minutes)
+    blocks = sorted(
+        (datetime.fromtimestamp(_utc_timestamp(item.start_at), zone) - break_time,
+         datetime.fromtimestamp(_utc_timestamp(item.end_at), zone) + break_time)
+        for item in reserved
+    )
     scheduled: list[ScheduledTaskProposal] = []
     unscheduled: list[UnscheduledTask] = []
 
@@ -151,6 +164,12 @@ def preview_daily_schedule(
         while remaining > 0 and capacity_left > 0 and len(scheduled) < MAX_PREVIEW_ENTRIES:
             duration = min(remaining, preferences.preferred_session_minutes, capacity_left)
             finish = cursor + timedelta(minutes=duration)
+            for blocked_start, blocked_end in blocks:
+                if blocked_start >= finish:
+                    break
+                if blocked_end > cursor:
+                    cursor = blocked_end
+                    finish = cursor + timedelta(minutes=duration)
             if finish > window_end:
                 break
             scheduled.append(ScheduledTaskProposal(
@@ -185,7 +204,7 @@ def preview_daily_schedule(
     return SchedulePreviewResponse(
         target_date=target_date,
         timezone_name=preferences.timezone_name,
-        capacity_minutes=preferences.daily_capacity_minutes,
+        capacity_minutes=available_capacity,
         scheduled_minutes=sum(item.duration_minutes for item in scheduled),
         entries=scheduled,
         unscheduled=unscheduled,

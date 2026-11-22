@@ -36,33 +36,52 @@ def generate_goal_plan(goal: Goal, task_count: int = 5, *, today: date | None = 
     if not 3 <= task_count <= 8:
         raise ValueError("task_count must be between 3 and 8")
 
-    current_day = today or datetime.now(timezone.utc).date()
-    due_date = goal.deadline.date() if goal.deadline else None
-    if due_date is not None and due_date < current_day:
-        due_date = None
+    earliest = datetime.combine(today, time.min, tzinfo=timezone.utc) if today else datetime.now(timezone.utc)
+    current_day = earliest.date()
+    goal_deadline = goal.deadline
+    if goal_deadline and goal_deadline.tzinfo is None:
+        goal_deadline = goal_deadline.replace(tzinfo=timezone.utc)
+    due_date = goal_deadline.date() if goal_deadline and goal_deadline >= earliest else None
     span = max((due_date - current_day).days, 1) if due_date else 0
     context = _safe_context(goal)
     tasks: list[ProposedTask] = []
     for index, (title, instruction, estimate, priority) in enumerate(_TEMPLATES[:task_count], start=1):
         deadline = None
-        if due_date:
+        if due_date and goal_deadline:
             day_offset = max(1, round(span * index / task_count))
             suggested_day = min(current_day + timedelta(days=day_offset), due_date)
-            deadline = datetime.combine(suggested_day, time(17, 0), tzinfo=timezone.utc)
-        tasks.append(ProposedTask(
-            title=f"{title}: {goal.title.strip()[:150]}",
-            description=f"{instruction} {context}",
-            priority=priority,
-            estimated_minutes=estimate,
-            deadline=deadline,
-            position=index,
-        ))
+            deadline = min(datetime.combine(suggested_day, time(17, 0), tzinfo=timezone.utc), goal_deadline)
+            if deadline < earliest:
+                deadline = goal_deadline
+        tasks.append(ProposedTask.model_validate({
+            "title": f"{title}: {goal.title.strip()[:150]}",
+            "description": f"{instruction} {context}",
+            "priority": priority,
+            "estimated_minutes": estimate,
+            "deadline": deadline,
+            "position": index,
+        }, context={"earliest_deadline": earliest}))
     return PlanResponse(
         generation_mode="rule_based",
         goal_id=goal.id,
         goal_title=goal.title,
         tasks=tasks,
     )
+
+
+def stage_goal_tasks(db: Session, goal_id: int, proposals: list[ProposedTask]) -> list[Task]:
+    tasks = [Task(
+        goal_id=goal_id,
+        title=item.title,
+        description=item.description,
+        status="pending",
+        priority=item.priority,
+        estimated_minutes=item.estimated_minutes,
+        deadline=item.deadline,
+        position=item.position,
+    ) for item in proposals]
+    db.add_all(tasks)
+    return tasks
 
 
 def save_goal_plan(
@@ -87,16 +106,7 @@ def save_goal_plan(
         tasks = list(db.scalars(select(Task).where(Task.id.in_(task_ids), Task.goal_id == goal_id)).all())
         return sorted(tasks, key=lambda task: task.position)
 
-    tasks = [Task(
-        goal_id=goal_id,
-        title=item.title,
-        description=item.description,
-        status="pending",
-        priority=item.priority,
-        estimated_minutes=item.estimated_minutes,
-        deadline=item.deadline,
-        position=item.position,
-    ) for item in request.tasks]
+    tasks = stage_goal_tasks(db, goal_id, request.tasks)
     run = AgentRun(
         user_id=user_id,
         goal_id=goal_id,
@@ -106,7 +116,7 @@ def save_goal_plan(
         output="[]",
         status="completed",
     )
-    db.add_all([*tasks, run])
+    db.add(run)
     try:
         db.flush()
         run.output = json.dumps([task.id for task in tasks])
