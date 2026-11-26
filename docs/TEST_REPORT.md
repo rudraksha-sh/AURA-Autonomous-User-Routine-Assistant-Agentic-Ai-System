@@ -385,3 +385,12 @@ All four phases sampled through Docker statistics and a live PostgreSQL connecti
 Three API restarts were externally polled from the separate frontend container; first `/readyz` HTTP 200 occurred in 5.229 s, 3.800 s, and 3.782 s.
 
 The sustained-only retry with default synthetic token expiry is **invalid**: a 5,832-second sample gap preceded 14 requests receiving 401 after test token expiry. The retry artifacts remain preserved. A later 24-hour-token retry was interrupted and is incomplete; its partial raw resource file remains preserved. Neither is used as passing evidence. Sustained capacity/reliability approval remains **provisional** and is deferred to hosted staging. Raw results remain ignored at `backend/.env.production-smoke-secrets/benchmark-results-tier-0.5c-1g`; no raw data was removed.
+
+## Task 26.3D.2b compatibility validation
+
+The owner reported a passing database preflight and **2 passed, 0 failed, 0 skipped in 0.39s** in standalone PowerShell. The target was the disposable `aura_bootstrap_test` database on `127.0.0.1:15432`, running PostgreSQL 17.12 with pgvector installed and an authenticated non-superuser admin with `CREATEROLE`. The owner reported that `git diff --check` passed and the temporary credential environment variable was removed.
+
+- `test_migration_database_url.py` verifies that the migration CLI preserves the original URL and that Alembic receives the synthetic password, connection timeout, `verify-full`, and CA path. This is a mocked URL regression test.
+- `test_bootstrap_database.py` verifies bootstrap with the non-superuser admin, authenticated migrator creation of a table and sequence, runtime insert/update/delete, and denial of runtime schema `CREATE` as reported by PostgreSQL's privilege check.
+
+The earlier writable-snapshot run reported **8 passed, 0 failed, 1 skipped**. It included the migration URL test and seven production configuration cases. The bootstrap case skipped because the disposable admin URL was absent. The final run selected only the two compatibility files and ran both cases.

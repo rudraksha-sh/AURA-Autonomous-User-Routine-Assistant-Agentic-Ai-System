@@ -6,6 +6,7 @@ AURA_MIGRATOR_DB_PASSWORD in an ephemeral private operator environment.
 import os
 import psycopg
 from psycopg import sql
+from psycopg.conninfo import make_conninfo
 
 
 def main() -> None:
@@ -34,14 +35,18 @@ def main() -> None:
         connection.execute("GRANT USAGE, CREATE ON SCHEMA public TO aura_migrator")
         if connection.execute("SELECT to_regclass('public.alembic_version')").fetchone()[0]:
             connection.execute("GRANT SELECT ON TABLE alembic_version TO aura_runtime")
-        connection.execute(sql.SQL(
-            "ALTER DEFAULT PRIVILEGES FOR ROLE aura_migrator IN SCHEMA public "
+
+    # A PostgreSQL 17 role creator cannot assume roles by default.
+    migrator_conninfo = make_conninfo(admin_url, user="aura_migrator", password=migrator_password)
+    with psycopg.connect(migrator_conninfo) as connection:
+        connection.execute(
+            "ALTER DEFAULT PRIVILEGES IN SCHEMA public "
             "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO aura_runtime"
-        ))
-        connection.execute(sql.SQL(
-            "ALTER DEFAULT PRIVILEGES FOR ROLE aura_migrator IN SCHEMA public "
+        )
+        connection.execute(
+            "ALTER DEFAULT PRIVILEGES IN SCHEMA public "
             "GRANT USAGE, SELECT ON SEQUENCES TO aura_runtime"
-        ))
+        )
         print("Database extension and least-privilege roles provisioned.")
 
 

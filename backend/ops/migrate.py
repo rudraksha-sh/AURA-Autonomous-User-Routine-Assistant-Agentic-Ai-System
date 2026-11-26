@@ -26,10 +26,6 @@ from app.db.session import engine
 if __name__ == "__main__":
     if make_url(settings.database_url).get_backend_name() != "postgresql":
         raise SystemExit("Production migrations require PostgreSQL.")
-    if settings.database_ssl_mode != "disable":
-        settings.database_url = str(make_url(settings.database_url).update_query_dict({
-            "sslmode": settings.database_ssl_mode, "sslrootcert": settings.database_ssl_root_cert,
-        }))
     config = Config(root / "alembic.ini")
     operation = sys.argv[1:] or ["upgrade"]
     match operation:

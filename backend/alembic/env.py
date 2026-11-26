@@ -1,6 +1,6 @@
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
+from sqlalchemy import engine_from_config, make_url
 from sqlalchemy import pool
 
 from alembic import context
@@ -19,18 +19,14 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
     
     
-database_url = settings.database_url
+database_url = make_url(settings.database_url)
 if settings.database_ssl_mode != "disable":
-    from sqlalchemy.engine import make_url
-
-    parsed_url = make_url(database_url)
-    if parsed_url.get_backend_name() != "postgresql":
+    if database_url.get_backend_name() != "postgresql":
         raise RuntimeError("DATABASE_SSL_MODE requires a PostgreSQL URL")
-    database_url = str(parsed_url.update_query_dict({
+    database_url = database_url.update_query_dict({
         "sslmode": settings.database_ssl_mode,
         "sslrootcert": settings.database_ssl_root_cert,
-    }))
-config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
+    })
 
 # add your model's MetaData object here
 # for 'autogenerate' support
@@ -73,9 +69,8 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url")
     context.configure(
-        url=url,
+        url=database_url,
         target_metadata=target_metadata,
         include_object=include_object,
         compare_type=compare_type,
@@ -97,7 +92,9 @@ def run_migrations_online() -> None:
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
+        url=database_url,
         poolclass=pool.NullPool,
+        hide_parameters=True,
     )
 
     with connectable.connect() as connection:

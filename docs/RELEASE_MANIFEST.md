@@ -166,3 +166,18 @@ Snapshot of `git status --porcelain --untracked-files=all`: 147 changed paths to
 ## Excluded from proposed release
 
 - `test.py` - deleted clone-check file; no references found; deletion remains pending owner decision.
+
+## Task 26.3D.2b corrective release manifest
+
+Candidate paths for a follow-up commit against `fe9ee1484f56d209c9ebaaee4cb47e066bb77e79`. The original 146-path snapshot remains historical.
+
+- `backend/alembic/env.py` - modified
+- `backend/ops/bootstrap_database.py` - modified
+- `backend/ops/migrate.py` - modified
+- `backend/unit_tests/test_bootstrap_database.py` - added
+- `backend/unit_tests/test_migration_database_url.py` - added
+- `docs/RELEASE_MANIFEST.md` - modified
+- `docs/RELEASE_READINESS.md` - modified
+- `docs/TEST_REPORT.md` - modified
+
+Owner-run verification on disposable PostgreSQL 17.12 with pgvector and a non-superuser `CREATEROLE` admin reported **2 passed, 0 failed, 0 skipped in 0.39s** and a passing `git diff --check`. `render.yaml` and the unrelated root `test.py` deletion are outside this corrective manifest. [Test evidence](TEST_REPORT.md#task-263d2b-compatibility-validation)
