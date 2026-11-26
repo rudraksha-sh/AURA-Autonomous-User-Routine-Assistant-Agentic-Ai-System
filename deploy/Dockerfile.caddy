@@ -1,0 +1,6 @@
+FROM caddy:2-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0
+ENV XDG_DATA_HOME=/srv/caddy-data XDG_CONFIG_HOME=/srv/caddy-config
+RUN mkdir -p /srv/caddy-data /srv/caddy-config \
+    && chown 10001:10001 /srv/caddy-data /srv/caddy-config
+COPY Caddyfile /etc/caddy/Caddyfile
+USER 10001:10001

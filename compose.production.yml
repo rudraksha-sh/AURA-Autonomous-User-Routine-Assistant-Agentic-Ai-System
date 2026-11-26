@@ -1,0 +1,211 @@
+x-hardening: &hardening
+  init: true
+  security_opt:
+    - no-new-privileges:true
+  cap_drop: [ALL]
+  logging:
+    driver: local
+    options:
+      max-size: 10m
+      max-file: "3"
+
+x-backend-image: &backend-image
+  image: aura-backend:${AURA_IMAGE_TAG:-local}
+  platform: linux/amd64
+
+x-runtime-env: &runtime-env
+  ENVIRONMENT: production
+  FRONTEND_URL: ${AURA_PUBLIC_ORIGIN:?Set the public HTTPS origin}
+  CORS_ORIGINS: ${AURA_PUBLIC_ORIGIN:?Set the public HTTPS origin}
+  GOOGLE_REDIRECT_URI: ${AURA_PUBLIC_ORIGIN:?Set the public HTTPS origin}/api/integrations/google/callback
+  AI_PROVIDER: disabled
+  EMAIL_PROVIDER: smtp
+  SMTP_HOST: ${AURA_SMTP_HOST:?Set SMTP host}
+  SMTP_PORT: ${AURA_SMTP_PORT:-587}
+  EMAIL_FROM: ${AURA_EMAIL_FROM:?Set the sender identity}
+  LANGSMITH_TRACING: "false"
+  LANGCHAIN_TRACING_V2: "false"
+
+services:
+  ingress:
+    <<: *hardening
+    build:
+      context: ./deploy
+      dockerfile: Dockerfile.caddy
+    environment:
+      AURA_HOST: ${AURA_HOST:?Set the ingress DNS hostname}
+      AURA_PUBLIC_ORIGIN: ${AURA_PUBLIC_ORIGIN:?Set the public HTTPS origin}
+      AURA_TLS_ISSUER: ${AURA_TLS_ISSUER:?Set ACME email or internal for local validation}
+    ports:
+      - "${AURA_BIND_ADDRESS:-127.0.0.1}:${AURA_HTTP_PORT:-80}:8080"
+      - "${AURA_BIND_ADDRESS:-127.0.0.1}:${AURA_HTTPS_PORT:-443}:8443"
+    volumes:
+      - caddy_data:/srv/caddy-data
+      - caddy_config:/srv/caddy-config
+    networks:
+      edge:
+        ipv4_address: 172.29.240.2
+    depends_on:
+      api:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: 192m
+    cpus: 0.50
+    pids_limit: 128
+
+  frontend:
+    <<: *hardening
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    networks: [edge]
+    mem_limit: 512m
+    cpus: 1.00
+    pids_limit: 128
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  api:
+    <<: [*hardening, *backend-image]
+    build:
+      context: ./backend
+    command: [uvicorn, "app.main:app", --host, "0.0.0.0", --port, "8000", --workers, "1", --proxy-headers, --forwarded-allow-ips, "172.29.240.2", --no-access-log, --no-server-header, --timeout-graceful-shutdown, "30"]
+    environment:
+      <<: *runtime-env
+      GOOGLE_CLIENT_ID: ${AURA_GOOGLE_CLIENT_ID:-}
+      SMTP_USERNAME: ${AURA_SMTP_USERNAME:-}
+    secrets:
+      - {source: runtime_database_url, target: DATABASE_URL}
+      - JWT_SECRET_KEY
+      - OTP_PEPPER
+      - INTEGRATION_TOKEN_KEY
+      - GOOGLE_CLIENT_SECRET
+      - SMTP_PASSWORD
+    volumes:
+      - profile_uploads:/app/private_uploads
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks: [edge, database]
+    restart: unless-stopped
+    stop_grace_period: 40s
+    mem_limit: 768m
+    cpus: 1.00
+    pids_limit: 128
+    healthcheck:
+      test: [CMD, python, -c, "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/readyz', timeout=3).close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  worker:
+    <<: [*hardening, *backend-image]
+    command: [python, -m, app.agents.execution.worker]
+    environment:
+      <<: *runtime-env
+      GOOGLE_CLIENT_ID: ""
+      GOOGLE_CLIENT_SECRET: ""
+      AURA_WORKER_HEALTH_PORT: "8091"
+    secrets:
+      - {source: runtime_database_url, target: DATABASE_URL}
+      - JWT_SECRET_KEY
+      - OTP_PEPPER
+      - INTEGRATION_TOKEN_KEY
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks: [database]
+    restart: unless-stopped
+    stop_grace_period: 45s
+    mem_limit: 512m
+    cpus: 0.50
+    pids_limit: 96
+    healthcheck:
+      test: [CMD, python, -c, "from urllib.request import urlopen; urlopen('http://127.0.0.1:8091/livez', timeout=3).close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    <<: [*hardening, *backend-image]
+    pull_policy: never
+    command: [python, ops/migrate.py]
+    environment:
+      GOOGLE_REDIRECT_URI: ${AURA_PUBLIC_ORIGIN:?Set the public HTTPS origin}/api/integrations/google/callback
+    secrets:
+      - {source: migration_database_url, target: DATABASE_URL}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [database]
+    restart: "no"
+    mem_limit: 384m
+    cpus: 0.50
+    pids_limit: 96
+
+  db:
+    <<: *hardening
+    image: pgvector/pgvector:pg17@sha256:b513c48566e4777cd3370451400000c78eda6a08131d68f4c31d4a76f27bd8fd
+    user: postgres
+    environment:
+      POSTGRES_DB: aura
+      POSTGRES_USER: aura_admin
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_admin_password
+    secrets: [db_admin_password, runtime_db_password, migration_db_password]
+    volumes:
+      - database_data:/var/lib/postgresql/data
+      - ./deploy/postgres-init.sql:/docker-entrypoint-initdb.d/10-aura.sql:ro
+    networks: [database]
+    restart: unless-stopped
+    stop_grace_period: 45s
+    shm_size: 128m
+    mem_limit: 1g
+    cpus: 1.00
+    pids_limit: 128
+    healthcheck:
+      test: [CMD, pg_isready, -h, "127.0.0.1", -U, aura_admin, -d, aura]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+networks:
+  edge:
+    ipam:
+      config:
+        - subnet: 172.29.240.0/24
+          ip_range: 172.29.240.128/25
+  database:
+    internal: true
+
+volumes:
+  caddy_data:
+  caddy_config:
+  profile_uploads:
+  database_data:
+
+secrets:
+  db_admin_password:
+    file: ${AURA_SECRETS_DIR:?Set an absolute private secret directory}/db_admin_password
+  runtime_db_password:
+    file: ${AURA_SECRETS_DIR:?Set an absolute private secret directory}/runtime_db_password
+  migration_db_password:
+    file: ${AURA_SECRETS_DIR:?Set an absolute private secret directory}/migration_db_password
+  runtime_database_url:
+    file: ${AURA_SECRETS_DIR:?Set an absolute private secret directory}/runtime_database_url
+  migration_database_url:
+    file: ${AURA_SECRETS_DIR:?Set an absolute private secret directory}/migration_database_url
+  JWT_SECRET_KEY:
+    file: ${AURA_SECRETS_DIR:?Set an absolute private secret directory}/JWT_SECRET_KEY
+  OTP_PEPPER:
+    file: ${AURA_SECRETS_DIR:?Set an absolute private secret directory}/OTP_PEPPER
+  INTEGRATION_TOKEN_KEY:
+    file: ${AURA_SECRETS_DIR:?Set an absolute private secret directory}/INTEGRATION_TOKEN_KEY
+  GOOGLE_CLIENT_SECRET:
+    file: ${AURA_SECRETS_DIR:?Set an absolute private secret directory}/GOOGLE_CLIENT_SECRET
+  SMTP_PASSWORD:
+    file: ${AURA_SECRETS_DIR:?Set an absolute private secret directory}/SMTP_PASSWORD

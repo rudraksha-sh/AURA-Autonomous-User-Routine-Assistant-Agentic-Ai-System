@@ -1,0 +1,26 @@
+{
+    admin off
+    skip_install_trust
+    http_port 8080
+    https_port 8443
+    auto_https disable_redirects
+}
+
+http://{$AURA_HOST}:8080 {
+    redir {$AURA_PUBLIC_ORIGIN}{uri} 308
+}
+
+https://{$AURA_HOST}:8443 {
+    tls {$AURA_TLS_ISSUER}
+    header Strict-Transport-Security "max-age=31536000"
+    request_body {
+        max_size 6291456
+    }
+    @api path /api/* /auth/*
+    handle @api {
+        reverse_proxy api:8000
+    }
+    handle {
+        reverse_proxy frontend:3000
+    }
+}

@@ -5,6 +5,12 @@ __pycache__/
 .pytest_cache/
 .coverage
 htmlcov/
+.aura-test-temp/
+.aura04-pg-*/
+.pytest-task*/
+.aura26check*/
+.aura263b*/
+backend/.env.production-smoke-secrets/
 
 # Virtual environments
 .venv/

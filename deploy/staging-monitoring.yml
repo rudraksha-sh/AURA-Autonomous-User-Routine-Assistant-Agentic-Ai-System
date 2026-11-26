@@ -1,0 +1,27 @@
+# Proposed monitor policy. Map destination aliases in the approved staging workspace.
+check_interval_seconds: 10
+failure_threshold: 3
+routes:
+  - signal: public_frontend_http
+    target: https://STAGING_PUBLIC_HOST/
+    expect: 200
+    destination: staging-app-oncall
+  - signal: private_api_ready
+    target: http://aura-staging-api:8000/readyz
+    expect: 200
+    observer: same-region-private-collector
+    destination: staging-app-oncall
+  - signal: worker_liveness_and_readiness
+    targets: [http://127.0.0.1:8091/livez, http://127.0.0.1:8091/readyz]
+    expect: 200
+    observer: worker-local-collector
+    destination: staging-worker-oncall
+  - signal: worker_database_unready_or_backup_overdue
+    destination: staging-db-oncall
+  - signal: worker_threshold_exceeded
+    destination: staging-worker-oncall
+    unknown_or_failed: staging-integration-owner
+  - signal: shared_security_state_unavailable
+    source: private-api-log
+    threshold_in_five_minutes: 3
+    destination: staging-app-oncall
