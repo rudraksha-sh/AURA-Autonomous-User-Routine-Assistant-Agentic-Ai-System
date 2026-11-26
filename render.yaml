@@ -1,0 +1,154 @@
+# Staging template. Sync only after explicit infrastructure approval.
+previews:
+  generation: "off"
+
+databases:
+  - name: aura-staging-postgres
+    region: oregon
+    plan: 0.5c-1g
+    postgresMajorVersion: "17"
+    databaseName: aura_staging
+    user: aura_stage_admin
+    ipAllowList: []
+
+services:
+  - type: web
+    name: aura-staging-web
+    region: oregon
+    runtime: docker
+    rootDir: frontend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: 0.5c-512mb
+    numInstances: 1
+    autoDeployTrigger: "off"
+    healthCheckPath: /
+    envVars:
+      - key: PORT
+        value: "3000"
+      - key: AURA_RENDER_INGRESS
+        value: "1"
+      - key: AURA_API_HOSTPORT
+        fromService:
+          type: pserv
+          name: aura-staging-api
+          property: hostport
+      - key: AURA_PROXY_SHARED_SECRET
+        fromService:
+          type: pserv
+          name: aura-staging-api
+          envVarKey: AURA_PROXY_SHARED_SECRET
+
+  - type: pserv
+    name: aura-staging-api
+    region: oregon
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1 --no-proxy-headers --no-access-log --no-server-header --timeout-graceful-shutdown 30
+    preDeployCommand: python ops/migrate.py verify
+    plan: 0.5c-512mb
+    numInstances: 1
+    autoDeployTrigger: "off"
+    maxShutdownDelaySeconds: 40
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: ENVIRONMENT
+        value: production
+      - key: SECURITY_STATE_BACKEND
+        value: postgres
+      - key: AI_PROVIDER
+        value: disabled
+      - key: LANGSMITH_TRACING
+        value: "false"
+      - key: LANGCHAIN_TRACING_V2
+        value: "false"
+      - key: EMAIL_PROVIDER
+        value: smtp
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        value: ""
+      - key: GOOGLE_CLIENT_SECRET
+        value: ""
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_SSL_MODE
+        value: verify-full
+      - key: DATABASE_SSL_ROOT_CERT
+        value: /etc/secrets/render-postgres-ca.pem
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: OTP_PEPPER
+        sync: false
+      - key: INTEGRATION_TOKEN_KEY
+        sync: false
+      - key: AURA_PROXY_SHARED_SECRET
+        generateValue: true
+
+  - type: worker
+    name: aura-staging-worker
+    region: oregon
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: python -m app.agents.execution.worker
+    preDeployCommand: python ops/migrate.py verify
+    plan: 0.5c-512mb
+    numInstances: 1
+    autoDeployTrigger: "off"
+    maxShutdownDelaySeconds: 45
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: SECURITY_STATE_BACKEND
+        value: postgres
+      - key: AI_PROVIDER
+        value: disabled
+      - key: LANGSMITH_TRACING
+        value: "false"
+      - key: EMAIL_PROVIDER
+        value: smtp
+      - key: AURA_WORKER_HEALTH_PORT
+        value: "8091"
+      - key: GOOGLE_CLIENT_ID
+        value: ""
+      - key: GOOGLE_CLIENT_SECRET
+        value: ""
+      - key: DATABASE_URL
+        fromService: {type: pserv, name: aura-staging-api, envVarKey: DATABASE_URL}
+      - key: DATABASE_SSL_MODE
+        value: verify-full
+      - key: DATABASE_SSL_ROOT_CERT
+        fromService: {type: pserv, name: aura-staging-api, envVarKey: DATABASE_SSL_ROOT_CERT}
+      - key: FRONTEND_URL
+        fromService: {type: pserv, name: aura-staging-api, envVarKey: FRONTEND_URL}
+      - key: CORS_ORIGINS
+        fromService: {type: pserv, name: aura-staging-api, envVarKey: CORS_ORIGINS}
+      - key: GOOGLE_REDIRECT_URI
+        fromService: {type: pserv, name: aura-staging-api, envVarKey: GOOGLE_REDIRECT_URI}
+      - key: SMTP_HOST
+        fromService: {type: pserv, name: aura-staging-api, envVarKey: SMTP_HOST}
+      - key: EMAIL_FROM
+        fromService: {type: pserv, name: aura-staging-api, envVarKey: EMAIL_FROM}
+      - key: JWT_SECRET_KEY
+        fromService: {type: pserv, name: aura-staging-api, envVarKey: JWT_SECRET_KEY}
+      - key: OTP_PEPPER
+        fromService: {type: pserv, name: aura-staging-api, envVarKey: OTP_PEPPER}
+      - key: INTEGRATION_TOKEN_KEY
+        fromService: {type: pserv, name: aura-staging-api, envVarKey: INTEGRATION_TOKEN_KEY}
