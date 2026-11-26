@@ -22,5 +22,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export function getGoogleIntegrationStatus() { return request<GoogleIntegrationStatus>("/google/status"); }
-export function disconnectGoogleIntegration() { return request<void>("/google", { method: "DELETE" }); }
-export function getGoogleConnectUrl() { return request<{ authorization_url: string }>("/google/connect"); }
+export type GoogleService = "calendar" | "gmail" | "drive" | "all";
+export function disconnectGoogleIntegration(revoke = false) {
+  return request<void>(revoke ? "/google?revoke_provider=true" : "/google", { method: "DELETE" });
+}
+export function getGoogleConnectUrl(service: GoogleService = "calendar") {
+  const query = service === "all" ? "" : `?service=${service}`;
+  return request<{ authorization_url: string }>(`/google/connect${query}`);
+}

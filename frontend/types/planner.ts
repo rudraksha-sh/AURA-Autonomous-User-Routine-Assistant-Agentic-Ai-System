@@ -43,6 +43,8 @@ export type UnscheduledTask = {
 };
 
 export type SchedulePreview = {
+  calendar_status?: "not_requested" | "included" | "unavailable";
+  calendar_conflict_task_ids?: number[];
   target_date: string;
   timezone_name: string;
   capacity_minutes: number;
@@ -62,6 +64,7 @@ export type DailySchedule = {
 };
 
 export type WhatIfRequest = {
+  deadline_change?: { task_id: number; deadline: string };
   target_date: string;
   capacity_minutes?: number;
   proposed_task?: { title: string; estimated_minutes: number; priority: "low" | "medium" | "high" };
@@ -70,6 +73,8 @@ export type WhatIfRequest = {
 };
 
 export type WhatIfSchedule = Omit<SchedulePreview, "entries" | "unscheduled"> & {
+  remaining_minutes?: number;
+  fits?: boolean;
   entries: Array<Omit<ScheduleEntryProposal, "task_id"> & { task_id: number | null; is_proposed_task: boolean }>;
   unscheduled: Array<Omit<UnscheduledTask, "task_id"> & { task_id: number | null; is_proposed_task: boolean }>;
 };

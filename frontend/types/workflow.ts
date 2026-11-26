@@ -11,6 +11,14 @@ export type Workflow = {
   result: {
     plan: PlanPreview | null;
     schedule: SchedulePreview | null;
+    capacity?: {
+      remaining_minutes: number;
+      workload_minutes: number | null;
+      workload_pressure_pct: number | null;
+      schedule_feasibility_pct: number | null;
+      deadline_risk_tasks: number;
+      reasons: string[];
+    } | null;
     simulation: WhatIfResult | null;
     comparison: {
       previous_run_id: string;
@@ -18,9 +26,29 @@ export type Workflow = {
       proposed_task_count: number;
       estimated_minutes_change: number;
       overdue_task_count: number;
+      preserved_task_ids?: number[];
+      updated_task_ids?: number[];
+      deleted_task_ids?: number[];
+      preserved_positions?: number[];
     } | null;
     trace: { agent: string; outcome: string; at: string }[];
-    evidence: { source: string; status: "verified" | null; task_ids: number[] } | null;
+    evidence: {
+      source: string;
+      status: "verified" | null;
+      task_ids: number[];
+      reconciled?: boolean;
+      context?: {
+        schema_version: 1;
+        status: "ready" | "unavailable";
+        sources: {
+          source_id: string;
+          version: string;
+          kind: "goal" | "task" | "document";
+          chunk: number;
+          local_id?: number | null;
+        }[];
+      } | null;
+    } | null;
   };
 };
 

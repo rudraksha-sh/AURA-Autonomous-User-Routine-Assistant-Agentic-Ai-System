@@ -49,11 +49,10 @@ async function fetchJson<T>(
     }
 
     const body = await response.json().catch(() => null);
-    const message =
-      body &&
-      typeof body === "object" &&
-      "detail" in body
-        ? String(body.detail)
+    const message = typeof body?.message === "string"
+      ? body.message
+      : typeof body?.detail === "string"
+        ? body.detail
         : `Request failed with status ${response.status}.`;
 
     throw new GoalApiError(message, response.status);

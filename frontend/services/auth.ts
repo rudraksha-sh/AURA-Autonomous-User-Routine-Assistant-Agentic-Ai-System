@@ -134,6 +134,7 @@ export async function getMe(): Promise<User> {
 
   return fetchJson<User>("/api/auth/me", {
     method: "GET",
+    signal: AbortSignal.timeout(10_000),
     headers: {
       Authorization: `Bearer ${token}`,
     },

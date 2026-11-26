@@ -87,10 +87,13 @@ export function AutonomyControls({ goals, grants, selectedGrant, onSelect, onCha
         </form>
       )}
       {grants.some((grant) => grant.status === "active" || grant.status === "paused") && (
-        <Button className="mt-3" variant="destructive" disabled={locked} onClick={() => update(async () => {
+        <Button className="mt-3" variant="destructive" disabled={locked} onClick={() => {
+          if (!window.confirm("Stop all autonomous task grants for this account?")) return;
+          void update(async () => {
           await stopAutonomy();
           return undefined;
-        })}>Emergency stop</Button>
+        });
+        }}>Emergency stop</Button>
       )}
       {!!grants.length && (
         <ul className="my-3 grid gap-3 text-sm">
@@ -108,10 +111,18 @@ export function AutonomyControls({ goals, grants, selectedGrant, onSelect, onCha
               )}
               {(grant.status === "active" || grant.status === "paused") && (
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <Button size="sm" variant="outline" disabled={locked} onClick={() => update(() => transitionAutonomyGrant(grant.id, grant.status === "active" ? "pause" : "resume"))}>
+                  <Button size="sm" variant="outline" disabled={locked} onClick={() => {
+                    const action = grant.status === "active" ? "pause" : "resume";
+                    if (action === "pause" && !window.confirm("Pause this autonomous grant?")) return;
+                    void update(() => transitionAutonomyGrant(grant.id, action));
+                  }}>
                     {grant.status === "active" ? "Pause grant" : "Resume grant"}
                   </Button>
-                  <Button size="sm" variant="outline" disabled={locked} onClick={() => update(() => transitionAutonomyGrant(grant.id, "revoke"))}>Revoke</Button>
+                  <Button size="sm" variant="outline" disabled={locked} onClick={() => {
+                    if (window.confirm("Revoke this autonomous grant?")) {
+                      void update(() => transitionAutonomyGrant(grant.id, "revoke"));
+                    }
+                  }}>Revoke</Button>
                 </div>
               )}
             </li>

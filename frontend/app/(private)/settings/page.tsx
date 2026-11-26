@@ -11,7 +11,7 @@ import { getPlanningPreferences, savePlanningPreferences } from "@/services/plan
 import type { PlanningPreferences } from "@/types/planner";
 import { clearAccessToken } from "@/services/auth-storage";
 import { useTheme } from "@/components/theme/ThemeProvider";
-import { disconnectGoogleIntegration, getGoogleConnectUrl, getGoogleIntegrationStatus, type GoogleIntegrationStatus } from "@/services/integrations";
+import { disconnectGoogleIntegration, getGoogleConnectUrl, getGoogleIntegrationStatus, type GoogleIntegrationStatus, type GoogleService } from "@/services/integrations";
 import { getNotificationPreferences, saveNotificationPreferences, type NotificationPreferences } from "@/services/notifications";
 import { getAIPlanningPreference, getAIProviderStatus, saveAIPlanningPreference, type AIProviderStatus } from "@/services/ai-settings";
 import { deleteAccount as deleteAccountRequest, downloadAccountExport } from "@/services/account-data";
@@ -47,6 +47,7 @@ export default function SettingsPage() {
   const [savedAppearance, setSavedAppearance] = React.useState<AppearancePreferences>({ theme: "system", accent_color: "blue", density: "comfortable", font_size: "medium" });
   const [planning, setPlanning] = React.useState<PlanningPreferences>({ timezone_name: "UTC", workday_start: "09:00", workday_end: "17:00", preferred_session_minutes: 50, break_minutes: 10, daily_capacity_minutes: 360 });
   const [savedPlanning, setSavedPlanning] = React.useState<PlanningPreferences>({ timezone_name: "UTC", workday_start: "09:00", workday_end: "17:00", preferred_session_minutes: 50, break_minutes: 10, daily_capacity_minutes: 360 });
+  const [googleService, setGoogleService] = React.useState<GoogleService>("calendar");
   const [googleStatus, setGoogleStatus] = React.useState<GoogleIntegrationStatus | null>(null);
   const [integrationLoading, setIntegrationLoading] = React.useState(true);
   const [notifications, setNotifications] = React.useState<NotificationPreferences>({ due_soon_reminders: true, overdue_alerts: true, weekly_summary: false, reminder_lead_time_minutes: 60 });
@@ -68,6 +69,7 @@ export default function SettingsPage() {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
+  const integrationHeading = React.useRef<HTMLHeadingElement>(null);
   const lastAction = React.useRef<(() => Promise<void>) | null>(null);
   const profileDirty = Boolean(profile && (name !== profile.name || email !== profile.email));
   const appearanceDirty = JSON.stringify(appearance) !== JSON.stringify(savedAppearance);
@@ -133,7 +135,14 @@ export default function SettingsPage() {
 
   React.useEffect(() => {
     let active = true;
-    getGoogleIntegrationStatus().then((status) => { if (active) setGoogleStatus(status); })
+    getGoogleIntegrationStatus().then((status) => {
+      if (!active) return;
+      setGoogleStatus(status);
+      if (status.status === "connected" && new URLSearchParams(window.location.search).get("google") === "connected") {
+        setActiveTab("Integrations");
+        setNotice("Google connected.");
+      }
+    })
       .catch((err: unknown) => { if (active) setError(err instanceof Error ? err.message : "Unable to load Google connection status."); })
       .finally(() => { if (active) setIntegrationLoading(false); });
     return () => { active = false; };
@@ -142,19 +151,22 @@ export default function SettingsPage() {
   async function connectGoogle() {
     lastAction.current = connectGoogle;
     setBusy(true); setError(null); setNotice(null);
-    try { const result = await getGoogleConnectUrl(); window.location.assign(result.authorization_url); }
+    try { const result = await getGoogleConnectUrl(googleService); window.location.assign(result.authorization_url); }
     catch (err) { setError(err instanceof Error ? err.message : "Unable to start Google connection."); }
     finally { setBusy(false); }
   }
 
-  async function disconnectGoogle() {
-    lastAction.current = disconnectGoogle;
+  async function disconnectGoogle(revoke = false) {
+    lastAction.current = () => disconnectGoogle(revoke);
     setBusy(true); setError(null); setNotice(null);
     try {
-      await disconnectGoogleIntegration();
+      await disconnectGoogleIntegration(revoke);
       setGoogleStatus({ status: "disconnected", scopes: [], last_sync_at: null });
-      setNotice("Google Calendar disconnected and stored credentials removed.");
-    } catch (err) { setError(err instanceof Error ? err.message : "Unable to disconnect Google Calendar."); }
+      setNotice(revoke
+        ? "Google revoked AURA's project access for this account and removed this connection."
+        : "This AURA connection was removed. Google access was not revoked.");
+      integrationHeading.current?.focus();
+    } catch (err) { setError(err instanceof Error ? err.message : "Unable to disconnect Google."); }
     finally { setBusy(false); }
   }
 
@@ -373,14 +385,29 @@ export default function SettingsPage() {
           </Card>}
           {!loading && activeTab === "Integrations" && <Card>
             <div className="flex flex-wrap items-start justify-between gap-4">
-              <div><h3 className="text-base font-semibold text-slate-900">Google Calendar</h3><p className="mt-1 text-sm text-slate-600">Connect your calendar to see busy times while you plan your day.</p></div>
+              <div><h3 ref={integrationHeading} tabIndex={-1} className="text-base font-semibold text-slate-900">Google integrations</h3><p className="mt-1 text-sm text-slate-600">Choose which Google data AURA can read.</p></div>
               {integrationLoading ? <span role="status" className="text-sm text-slate-500">Checking connection…</span> : googleStatus?.status === "connected" ? <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-800"><span aria-hidden="true" className="size-2 rounded-full bg-emerald-600" />Connected</span> : <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700"><span aria-hidden="true" className="size-2 rounded-full bg-slate-400" />Not connected</span>}
             </div>
             {integrationLoading ? <p className="mt-5 text-sm text-slate-500">Loading Google status…</p> : googleStatus?.status === "connected" ? <div className="mt-5 space-y-4">
-              <div><p className="text-sm font-semibold text-slate-700">Granted scopes</p>{googleStatus.scopes.length ? <ul className="mt-2 flex flex-wrap gap-2">{googleStatus.scopes.map((scope) => <li key={scope} className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs text-slate-700">{scope}</li>)}</ul> : <p className="mt-1 text-sm text-slate-500">No scope details were returned by Google.</p>}</div>
+              <div><p className="text-sm font-semibold text-slate-700">Granted scopes</p>{googleStatus.scopes.length ? <ul className="mt-2 flex flex-wrap gap-2">{googleStatus.scopes.map((scope) => <li key={scope} className="max-w-full break-all rounded-lg bg-slate-100 px-2.5 py-1 text-xs text-slate-700">{scope}</li>)}</ul> : <p className="mt-1 text-sm text-slate-500">No scope details were returned by Google.</p>}</div>
               <p className="text-sm text-slate-600">Last successful sync: {googleStatus.last_sync_at ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(googleStatus.last_sync_at)) : "Not synced yet"}</p>
-              <button type="button" disabled={busy} onClick={() => void disconnectGoogle()} className="inline-flex items-center gap-2 rounded-lg border border-rose-200 px-4 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"><Unplug aria-hidden="true" className="size-4" />Disconnect</button>
-            </div> : <div className="mt-5"><button type="button" disabled={busy} onClick={() => void connectGoogle()} className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"><Link2 aria-hidden="true" className="size-4" />Connect Google Calendar</button></div>}
+              <p id="google-disconnect-help" className="text-sm text-slate-600">Disconnect locally removes this AURA connection. Revoking at Google invalidates Gmail, Calendar and Drive access for this Google account across the AURA Google project.</p>
+              <div className="flex flex-wrap items-center gap-3">
+                <button type="button" disabled={busy} aria-describedby="google-disconnect-help" onClick={() => void disconnectGoogle()} className="inline-flex items-center gap-2 rounded-lg border border-rose-200 px-4 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"><Unplug aria-hidden="true" className="size-4" />Disconnect locally</button>
+                <button type="button" disabled={busy} aria-describedby="google-disconnect-help" onClick={() => {
+                  if (window.confirm("Revoke AURA's Google access for this account across Gmail, Calendar and Drive?")) {
+                    void disconnectGoogle(true);
+                  }
+                }} className="rounded px-2 py-2.5 text-sm font-semibold text-rose-700 underline disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-rose-500">Revoke Google access</button>
+              </div>
+            </div> : <div className="mt-5 flex flex-wrap items-end gap-3">
+              <label className="grid gap-1 text-sm">Read access
+                <select value={googleService} onChange={(event) => setGoogleService(event.target.value as GoogleService)} className="rounded-lg border border-slate-300 px-3 py-2">
+                  <option value="calendar">Calendar availability</option><option value="gmail">Gmail</option>
+                  <option value="drive">Drive</option><option value="all">All three services</option>
+                </select>
+              </label>
+              <button type="button" disabled={busy} onClick={() => void connectGoogle()} className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"><Link2 aria-hidden="true" className="size-4" />Connect Google</button></div>}
             {!integrationLoading && <button type="button" onClick={() => void refreshGoogleStatus()} className="mt-4 text-sm font-semibold text-blue-700 underline">Refresh status</button>}
           </Card>}
           {!loading && activeTab === "Notifications" && <Card>

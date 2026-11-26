@@ -50,7 +50,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           redirectToLogin();
           return;
         }
-        setError(err instanceof Error ? err.message : "Unable to verify your session.");
+        setError(err instanceof DOMException && err.name === "TimeoutError"
+          ? "Session verification timed out. Try again."
+          : err instanceof Error ? err.message : "Unable to verify your session.");
       } finally {
         if (active) setIsChecking(false);
       }

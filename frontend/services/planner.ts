@@ -12,7 +12,7 @@ export class PlannerApiError extends Error {
   }
 }
 
-async function request<T>(path: string, body?: unknown, method = "POST"): Promise<T> {
+async function request<T>(path: string, body?: unknown, method = "POST", signal?: AbortSignal): Promise<T> {
   const token = getAccessToken();
   if (!token) {
     expireAccessToken();
@@ -22,6 +22,7 @@ async function request<T>(path: string, body?: unknown, method = "POST"): Promis
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
       method,
+      signal,
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
@@ -89,9 +90,10 @@ export function listWorkflows(): Promise<Workflow[]> {
   return request("/api/v1/workflows", undefined, "GET");
 }
 
-export function startWorkflow(runId: string, goalId: number, targetDate: string, grant?: AutonomyGrant): Promise<Workflow> {
+export function startWorkflow(runId: string, goalId: number, targetDate: string, grant?: AutonomyGrant, includeCalendar = false): Promise<Workflow> {
   return request("/api/v1/workflows", {
     intent: "plan_goal", run_id: runId, goal_id: goalId, target_date: targetDate,
+    ...(includeCalendar ? { include_calendar: true } : {}),
     ...(grant ? { grant_id: grant.id, task_count: grant.task_limit } : {}),
   });
 }
@@ -130,12 +132,79 @@ export function startSimulationWorkflow(runId: string, scenario: WhatIfRequest):
   return request("/api/v1/workflows", { intent: "simulate", run_id: runId, scenario });
 }
 
-export function startReplan(runId: string, goalId: number, previousRunId: string, targetDate: string): Promise<Workflow> {
+export function startReplan(runId: string, goalId: number, previousRunId: string, targetDate: string, includeCalendar = false): Promise<Workflow> {
   return request("/api/v1/workflows", {
     intent: "plan_goal", run_id: runId, goal_id: goalId, previous_run_id: previousRunId, target_date: targetDate,
+    ...(includeCalendar ? { include_calendar: true } : {}),
   });
 }
 
 export function resetPlanningPreferences(): Promise<void> {
   return request("/api/planner/preferences", undefined, "DELETE");
+}
+
+export type MemoryEntry = { id: string; text: string; use_for_planning: boolean; expires_at: string };
+export type MemoryInput = Pick<MemoryEntry, "text" | "use_for_planning"> & { retention_days: number };
+
+export function listMemories(): Promise<MemoryEntry[]> {
+  return request("/api/v1/memory", undefined, "GET");
+}
+
+export function saveMemory(input: MemoryInput, id?: string): Promise<MemoryEntry> {
+  return request(id ? `/api/v1/memory/${id}` : "/api/v1/memory", input, id ? "PUT" : "POST");
+}
+
+export function deleteMemory(id?: string): Promise<void> {
+  return request(id ? `/api/v1/memory/${id}` : "/api/v1/memory", undefined, "DELETE");
+}
+
+export type ReplanSignals = {
+  needs_review: boolean;
+  changed_task_ids: number[];
+  missing_task_ids: number[];
+  overdue_task_ids: number[];
+  conflicting_task_ids: number[];
+};
+
+export type ReceiptStatus = "verified" | "changed" | "failed" | "unknown";
+
+export function getReplanSignals(id: string, signal?: AbortSignal): Promise<ReplanSignals> {
+  return request(`/api/v1/workflows/${id}/replan-signals`, undefined, "GET", signal);
+}
+
+export function recheckWorkflowReceipt(id: string): Promise<{ status: ReceiptStatus }> {
+  return request(`/api/v1/workflows/${id}/verification`, undefined, "GET");
+}
+
+export type ExternalAction = {
+  id: string;
+  goal_id: number | null;
+  revision: number;
+  state: "preview" | "queued" | "dispatching" | "verified" | "unknown" | "failed";
+  consent: "off" | "active" | "paused" | "revoked";
+  payload: { start_at: string; duration_minutes: number };
+  fingerprint: string;
+  consent_version: string;
+  adapter_available: boolean;
+  effect: string;
+};
+
+export type ActionOperation = "confirm" | "pause" | "resume" | "revoke" | "dispatch" | "reconcile";
+
+export function listExternalActions(): Promise<ExternalAction[]> {
+  return request("/api/v1/external-actions", undefined, "GET");
+}
+
+export function previewExternalAction(requestId: string, goalId: number, startAt: string, minutes: number): Promise<ExternalAction> {
+  return request("/api/v1/external-actions", {
+    request_id: requestId, goal_id: goalId, provider: "sandbox_calendar", operation: "calendar.hold.create",
+    start_at: startAt, duration_minutes: minutes,
+  });
+}
+
+export function transitionExternalAction(action: ExternalAction, operation: ActionOperation): Promise<ExternalAction> {
+  return request(`/api/v1/external-actions/${action.id}/transition`, {
+    operation, revision: action.revision,
+    ...(operation === "confirm" ? { consent_version: action.consent_version, fingerprint: action.fingerprint } : {}),
+  });
 }
