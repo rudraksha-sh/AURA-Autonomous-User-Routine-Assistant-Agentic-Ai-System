@@ -3,6 +3,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
+from app.integrations.google.reads import CALENDAR_SCOPES, SCOPE, free_busy, require_read_grant
 from app.integrations.google.client import build_calendar_service
 from app.schemas.calendar import CalendarBusyBlock, CalendarBusyResponse
 from app.services.integration_service import get_google_integration
@@ -33,6 +34,17 @@ def get_calendar_busy_blocks(db: Session, user_id: int, start_at: datetime, end_
 
     preferences = get_preferences(db, user_id)
     try:
+        require_read_grant(integration, CALENDAR_SCOPES)
+        if set((integration.scopes or "").split()).intersection(
+            {SCOPE + "calendar.freebusy", SCOPE + "calendar.events.freebusy"}
+        ):
+            intervals = free_busy(db, user_id, start_at, end_at)
+            integration.last_synced_at = datetime.now(timezone.utc)
+            db.commit()
+            return CalendarBusyResponse(calendar_synced=True, busy_blocks=[
+                CalendarBusyBlock(id=f"busy-{index}", title="Busy", start_at=start, end_at=end, all_day=False)
+                for index, (start, end) in enumerate(intervals)
+            ])
         service = build_calendar_service(db, user_id)
         payload = service.events().list(
             calendarId="primary",
@@ -42,6 +54,8 @@ def get_calendar_busy_blocks(db: Session, user_id: int, start_at: datetime, end_
             orderBy="startTime",
             maxResults=250,
         ).execute()
+        if not isinstance(payload, dict) or not isinstance(payload.get("items", []), list) or payload.get("nextPageToken"):
+            raise ValueError("Calendar returned incomplete availability.")
         integration.last_synced_at = datetime.now(timezone.utc)
         db.commit()
     except Exception:

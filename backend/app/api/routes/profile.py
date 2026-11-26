@@ -3,8 +3,6 @@ from pathlib import Path
 
 from datetime import datetime, timezone
 
-import json
-
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import JSONResponse
 from sqlalchemy import select

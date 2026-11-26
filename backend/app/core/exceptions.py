@@ -6,11 +6,22 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
+from app.core.shared_security import SecurityStateUnavailable
+
+
 logger = logging.getLogger("aura.api")
 
 
 def register_exception_handlers(app: FastAPI) -> None:
     """Register safe, centralized API exception handlers."""
+
+    @app.exception_handler(SecurityStateUnavailable)
+    async def shared_state_unavailable(_: Request, __: SecurityStateUnavailable) -> JSONResponse:
+        logger.warning("shared_security_state_unavailable")
+        return JSONResponse(
+            status_code=503, headers={"Retry-After": "2"},
+            content={"error": "security_state_unavailable", "message": "Try again shortly."},
+        )
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(
@@ -18,17 +29,10 @@ def register_exception_handlers(app: FastAPI) -> None:
         exc: RequestValidationError,
     ) -> JSONResponse:
         logger.warning(
-            "Request validation failed: method=%s path=%s errors=%s",
+            "Request validation failed: method=%s route=%s count=%s",
             request.method,
-            request.url.path,
-            [
-                {
-                    "location": error.get("loc"),
-                    "message": error.get("msg"),
-                    "type": error.get("type"),
-                }
-                for error in exc.errors()
-            ],
+            getattr(request.scope.get("route"), "path", "<unmatched>"),
+            len(exc.errors()),
         )
 
         return JSONResponse(
@@ -58,10 +62,11 @@ def register_exception_handlers(app: FastAPI) -> None:
         request: Request,
         exc: Exception,
     ) -> JSONResponse:
-        logger.exception(
-            "Unhandled application exception: method=%s path=%s",
+        logger.error(
+            "Unhandled application exception: method=%s route=%s type=%s",
             request.method,
-            request.url.path,
+            getattr(request.scope.get("route"), "path", "<unmatched>"),
+            type(exc).__name__,
         )
 
         return JSONResponse(

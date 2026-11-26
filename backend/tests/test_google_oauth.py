@@ -22,7 +22,6 @@ from app.integrations.google.oauth import (
 )
 from app.models.integration import Integration
 from app.models.user import User
-from tests.conftest import test_engine
 
 
 # ============================================================
@@ -99,7 +98,7 @@ def test_google_oauth_scopes_include_required_services():
         in GOOGLE_OAUTH_SCOPES
     )
     assert (
-        "https://www.googleapis.com/auth/calendar.readonly"
+        "https://www.googleapis.com/auth/calendar.freebusy"
         in GOOGLE_OAUTH_SCOPES
     )
     assert (
@@ -177,7 +176,7 @@ def test_exchange_google_code(mock_create_flow):
     result = exchange_google_code("test-authorization-code")
 
     mock_flow.fetch_token.assert_called_once_with(
-        code="test-authorization-code"
+        timeout=5, code="test-authorization-code"
     )
 
     assert result is credentials
@@ -201,9 +200,10 @@ def test_get_google_user_info(mock_build):
     mock_build.assert_called_once_with(
         "oauth2",
         "v2",
-        credentials=credentials,
+        http=mock_build.call_args.kwargs['http'],
         cache_discovery=False,
     )
+    assert mock_build.call_args.kwargs['http'].http.timeout == 5
 
     assert result["id"] == "google-user-123"
     assert result["email"] == "user@example.com"
@@ -276,6 +276,7 @@ def test_google_callback_handles_google_denial(client):
 def test_google_callback_persists_integration(
     client,
     monkeypatch,
+    test_engine,
 ):
     with Session(test_engine) as db:
         user = User(

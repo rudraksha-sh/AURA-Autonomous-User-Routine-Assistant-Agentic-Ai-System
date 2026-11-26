@@ -14,7 +14,6 @@ from app.integrations.google.client import (
 )
 from app.models.integration import Integration
 from app.models.user import User
-from tests.conftest import test_engine
 
 
 def create_test_user(db: Session) -> User:
@@ -67,6 +66,7 @@ def create_google_integration(
 def test_build_google_service(
     mock_get_credentials,
     mock_build,
+    test_engine,
 ):
     credentials = MagicMock(spec=Credentials)
     service = MagicMock()
@@ -92,9 +92,10 @@ def test_build_google_service(
     mock_build.assert_called_once_with(
         "gmail",
         "v1",
-        credentials=credentials,
+        http=mock_build.call_args.kwargs['http'],
         cache_discovery=False,
     )
+    assert mock_build.call_args.kwargs['http'].http.timeout == 5
 
 
 @patch("app.integrations.google.client.build")
@@ -104,6 +105,7 @@ def test_build_google_service(
 def test_build_google_service_wraps_credential_error(
     mock_get_credentials,
     mock_build,
+    test_engine,
 ):
     from app.integrations.google.credentials import (
         GoogleCredentialsError,
@@ -132,6 +134,7 @@ def test_build_google_service_wraps_credential_error(
 def test_build_google_service_wraps_build_error(
     mock_get_credentials,
     mock_build,
+    test_engine,
 ):
     credentials = MagicMock(spec=Credentials)
 
@@ -149,7 +152,7 @@ def test_build_google_service_wraps_build_error(
 
 
 @patch("app.integrations.google.client.build_google_service")
-def test_build_gmail_service(mock_build_service):
+def test_build_gmail_service(mock_build_service, test_engine):
     service = MagicMock()
     mock_build_service.return_value = service
 
@@ -170,7 +173,7 @@ def test_build_gmail_service(mock_build_service):
 
 
 @patch("app.integrations.google.client.build_google_service")
-def test_build_calendar_service(mock_build_service):
+def test_build_calendar_service(mock_build_service, test_engine):
     service = MagicMock()
     mock_build_service.return_value = service
 
@@ -191,7 +194,7 @@ def test_build_calendar_service(mock_build_service):
 
 
 @patch("app.integrations.google.client.build_google_service")
-def test_build_drive_service(mock_build_service):
+def test_build_drive_service(mock_build_service, test_engine):
     service = MagicMock()
     mock_build_service.return_value = service
 

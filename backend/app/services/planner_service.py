@@ -1,11 +1,11 @@
 import json
 from datetime import date, datetime, time, timedelta, timezone
-from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.agents.context.schemas import PlanningGoal
 from app.models.agent_run import AgentRun
 from app.models.goal import Goal
 from app.models.task import Task
@@ -24,7 +24,7 @@ _TEMPLATES = (
 )
 
 
-def _safe_context(goal: Goal) -> str:
+def _safe_context(goal: Goal | PlanningGoal) -> str:
     # The description is context only; planning remains a fixed rule/template process.
     description = (goal.description or "").strip()
     if not description:
@@ -32,7 +32,7 @@ def _safe_context(goal: Goal) -> str:
     return f"Goal: {goal.title.strip()}. Context: {description[:400]}"
 
 
-def generate_goal_plan(goal: Goal, task_count: int = 5, *, today: date | None = None) -> PlanResponse:
+def generate_goal_plan(goal: Goal | PlanningGoal, task_count: int = 5, *, today: date | None = None) -> PlanResponse:
     if not 3 <= task_count <= 8:
         raise ValueError("task_count must be between 3 and 8")
 

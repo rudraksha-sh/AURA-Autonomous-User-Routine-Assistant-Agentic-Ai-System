@@ -4,11 +4,12 @@ from datetime import date, datetime, timezone
 from langgraph.types import interrupt
 from sqlalchemy.orm import Session
 
-from app.agents.context.agent import load_goal
+from app.agents.context.agent import collect_snapshot
+from app.agents.context.schemas import PlanningSnapshot
 from app.agents.execution.agent import execute_plan
 from app.agents.execution.schemas import CREATE_GOAL_TASKS
 from app.agents.intelligence.agent import evaluate_capacity
-from app.agents.replanning.agent import compare_plans, goal_version
+from app.agents.replanning.agent import compare_plans, preview_reconciliation
 from app.agents.planner.agent import plan_goal
 from app.agents.scheduler.agent import schedule_plan
 from app.agents.simulation.agent import simulate
@@ -35,17 +36,18 @@ def supervise(state: WorkflowState) -> dict:
 
 
 def collect_context(state: WorkflowState, db: Session) -> dict:
-    context = load_goal(db, state["user_id"], state["goal_id"])
+    snapshot = collect_snapshot(db, state["user_id"], state["goal_id"])
     return {
-        "goal_version": goal_version(context.goal),
-        "evidence": {"source": context.source},
+        "goal_version": snapshot.goal_version,
+        "context_snapshot": snapshot.model_dump(mode="json"),
+        "evidence": {"source": "aura.goal", "context": snapshot.retrieval.model_dump(mode="json")},
         **event(state, "context"),
     }
 
 
 def plan(state: WorkflowState, db: Session) -> dict:
-    context = load_goal(db, state["user_id"], state["goal_id"])
-    proposal = plan_goal(context, PlanRequest(task_count=state["task_count"]))
+    snapshot = PlanningSnapshot.model_validate(state["context_snapshot"])
+    proposal = plan_goal(snapshot, PlanRequest(task_count=state["task_count"]))
     return {
         "plan": proposal.model_dump(mode="json"),
         "proposed_actions": [CREATE_GOAL_TASKS],
@@ -55,13 +57,26 @@ def plan(state: WorkflowState, db: Session) -> dict:
 
 def compare(state: WorkflowState, db: Session) -> dict:
     comparison = compare_plans(db, state["user_id"], state["goal_id"], state["previous_run_id"], state["plan"])
-    return {"comparison": comparison.model_dump(mode="json"), **event(state, "replanning")}
+    reviewed = preview_reconciliation(db, state["user_id"], state["goal_id"], state["previous_run_id"], state["plan"])
+    return {
+        "reconciliation": reviewed,
+        "comparison": {
+            **comparison.model_dump(mode="json"),
+            "preserved_task_ids": reviewed["preserved"],
+            "updated_task_ids": [int(value) for value in reviewed["updates"].values()],
+            "deleted_task_ids": [value for value in reviewed["ids"] if str(value) not in reviewed["expected"]],
+            "preserved_positions": reviewed["skipped"],
+        },
+        **event(state, "replanning"),
+    }
 
 
 def schedule(state: WorkflowState, db: Session) -> dict:
     preview = schedule_plan(
         db, state["user_id"], date.fromisoformat(state["target_date"]),
         PlanResponse.model_validate(state["plan"]),
+        include_calendar=state.get("include_calendar", False),
+        reconciliation=state.get("reconciliation"),
     )
     return {
         "schedule": preview.model_dump(mode="json"),
@@ -87,8 +102,12 @@ def review(state: WorkflowState) -> dict:
 
 
 def execute(state: WorkflowState, db: Session) -> dict:
-    snapshots = execute_plan(db, state)
+    snapshots, positions = execute_plan(db, state)
     evidence = {**state["evidence"], "task_ids": [int(value) for value in snapshots], "_task_snapshots": snapshots}
+    if positions is not None:
+        evidence["_task_positions"] = positions
+        evidence["_protected_task_ids"] = state["reconciliation"]["preserved"]
+        evidence["reconciled"] = True
     if state.get("grant_id"):
         evidence["grant_id"] = state["grant_id"]
     return {"evidence": evidence, "approval_status": "grant_authorized" if state.get("grant_id") else "approved",
@@ -96,7 +115,8 @@ def execute(state: WorkflowState, db: Session) -> dict:
 
 
 def verify(state: WorkflowState, db: Session) -> dict:
-    receipt = verify_tasks(db, state["user_id"], state["goal_id"], state["evidence"]["task_ids"])
+    receipt = verify_tasks(db, state["user_id"], state["goal_id"], state["evidence"]["task_ids"],
+                           state["evidence"].get("_task_snapshots"))
     if receipt.status != "verified":
         raise RuntimeError("Local task receipt could not be verified")
     return {

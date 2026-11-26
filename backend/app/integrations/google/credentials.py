@@ -77,6 +77,7 @@ def is_token_expired(
 def get_user_google_credentials(
     db: Session,
     user_id: int,
+    *, commit: bool = True,
 ) -> Credentials:
     """
     Load the user's Google integration.
@@ -106,11 +107,22 @@ def get_user_google_credentials(
         )
 
     try:
-        credentials.refresh(Request())
+        request = Request()
+        credentials.refresh(lambda *args, **kwargs: request(*args, **{**kwargs, "timeout": 5}))
     except Exception as exc:
         raise GoogleCredentialsError(
             "Failed to refresh Google access token"
         ) from exc
+
+    if is_token_expired(credentials.expiry):
+        raise GoogleCredentialsError("Google refresh returned an expired access token.")
+
+    if credentials.granted_scopes is not None:
+        identity_scope = "https://www.googleapis.com/auth/userinfo.email"
+        granted = {identity_scope if scope == "email" else scope for scope in credentials.granted_scopes}
+        requested = {identity_scope if scope == "email" else scope for scope in credentials.scopes or ()}
+        if granted != requested:
+            raise GoogleCredentialsError("Google refresh returned a different authorization scope.")
 
     if not credentials.token:
         raise GoogleCredentialsError(
@@ -121,7 +133,8 @@ def get_user_google_credentials(
     integration.refresh_token = protect_token(credentials.refresh_token)
     integration.token_expiry = credentials.expiry
 
-    db.commit()
-    db.refresh(integration)
+    if commit:
+        db.commit()
+        db.refresh(integration)
 
     return credentials

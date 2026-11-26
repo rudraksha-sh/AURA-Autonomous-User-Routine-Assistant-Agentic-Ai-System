@@ -6,6 +6,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.agents.context.agent import load_goal
+from app.agents.execution import outbox
 from app.agents.execution.policies import CONSENT_VERSION
 from app.api.routes.workflows import limit_mutation
 from app.core.security import get_current_user_id
@@ -85,4 +86,5 @@ def emergency_stop(user_id: int = Depends(get_current_user_id), db: Session = De
     db.execute(update(AutonomyGrant).where(
         AutonomyGrant.user_id == user_id, AutonomyGrant.status != "revoked",
     ).values(status="revoked"))
+    outbox.stop(db, user_id)
     db.commit()

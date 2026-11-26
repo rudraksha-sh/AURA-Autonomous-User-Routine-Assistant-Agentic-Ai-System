@@ -58,7 +58,8 @@ def test_calendar_busy_blocks_auth_fallback_and_external_validation(tmp_path):
             from app.models.user import User
 
             owner_id = session.query(User.id).filter_by(email="calendar-view@example.com").scalar()
-            session.add(Integration(user_id=owner_id, provider="google", access_token="test-access-token"))
+            session.add(Integration(user_id=owner_id, provider="google", access_token="fernet:v1:fixture",
+                                    scopes="https://www.googleapis.com/auth/calendar.readonly"))
             session.commit()
 
         with patch("app.services.calendar_service.build_calendar_service", return_value=FakeCalendar()):
@@ -97,7 +98,8 @@ def test_calendar_api_failure_returns_clear_unsynced_state(tmp_path):
             from app.models.user import User
 
             owner_id = session.query(User.id).filter_by(email="calendar-error@example.com").scalar()
-            session.add(Integration(user_id=owner_id, provider="google", access_token="test-access-token"))
+            session.add(Integration(user_id=owner_id, provider="google", access_token="fernet:v1:fixture",
+                                    scopes="https://www.googleapis.com/auth/calendar.readonly"))
             session.commit()
         with patch("app.services.calendar_service.build_calendar_service", side_effect=RuntimeError("Google unavailable")):
             response = client.get("/api/planner/calendar/events", headers=headers, params={"start_at": "2026-10-20T00:00:00+00:00", "end_at": "2026-10-21T00:00:00+00:00"})

@@ -124,14 +124,17 @@ def preview_daily_schedule(
     target_date: date,
     *,
     task_ids: set[int] | None = None,
+    respect_deadlines: bool = False,
 ) -> SchedulePreviewResponse:
     preferences = get_preferences(db, user_id)
-    return schedule_tasks(preferences, target_date, _owned_pending_tasks(db, user_id, task_ids))
+    return schedule_tasks(preferences, target_date, _owned_pending_tasks(db, user_id, task_ids), respect_deadlines=respect_deadlines)
 
 
 def schedule_tasks(
     preferences: PlanningPreferencesResponse, target_date: date, tasks, *,
     reserved: tuple[ScheduledTaskProposal, ...] = (),
+    busy: tuple[tuple[datetime, datetime], ...] = (),
+    respect_deadlines: bool = False,
 ) -> SchedulePreviewResponse:
     zone = ZoneInfo(preferences.timezone_name)
     tasks = sorted(tasks, key=lambda task: (
@@ -145,14 +148,15 @@ def schedule_tasks(
 
     window_start = datetime.combine(target_date, preferences.workday_start, tzinfo=zone)
     window_end = datetime.combine(target_date, preferences.workday_end, tzinfo=zone)
+    window_start, window_end = (value.astimezone(timezone.utc) for value in (window_start, window_end))
     cursor = window_start
     available_capacity = max(0, preferences.daily_capacity_minutes - sum(item.duration_minutes for item in reserved))
     capacity_left = available_capacity
     break_time = timedelta(minutes=preferences.break_minutes)
     blocks = sorted(
-        (datetime.fromtimestamp(_utc_timestamp(item.start_at), zone) - break_time,
-         datetime.fromtimestamp(_utc_timestamp(item.end_at), zone) + break_time)
-        for item in reserved
+        [(datetime.fromtimestamp(_utc_timestamp(item.start_at), timezone.utc) - break_time,
+          datetime.fromtimestamp(_utc_timestamp(item.end_at), timezone.utc) + break_time)
+         for item in reserved] + [(start.astimezone(timezone.utc), end.astimezone(timezone.utc)) for start, end in busy]
     )
     scheduled: list[ScheduledTaskProposal] = []
     unscheduled: list[UnscheduledTask] = []
@@ -161,24 +165,29 @@ def schedule_tasks(
         estimate = task.estimated_minutes or preferences.preferred_session_minutes
         remaining = estimate
         segment_index = 1
+        deadline = datetime.fromtimestamp(_utc_timestamp(task.deadline), timezone.utc) if (
+            respect_deadlines and task.deadline
+        ) else window_end
+        cutoff = min(window_end, deadline)
         while remaining > 0 and capacity_left > 0 and len(scheduled) < MAX_PREVIEW_ENTRIES:
             duration = min(remaining, preferences.preferred_session_minutes, capacity_left)
-            finish = cursor + timedelta(minutes=duration)
+            start_at = cursor
+            finish = start_at + timedelta(minutes=duration)
             for blocked_start, blocked_end in blocks:
                 if blocked_start >= finish:
                     break
-                if blocked_end > cursor:
-                    cursor = blocked_end
-                    finish = cursor + timedelta(minutes=duration)
-            if finish > window_end:
+                if blocked_end > start_at:
+                    start_at = blocked_end
+                    finish = start_at + timedelta(minutes=duration)
+            if finish > cutoff:
                 break
             scheduled.append(ScheduledTaskProposal(
                 task_id=task.id,
                 title=task.title,
                 priority=task.priority,
                 segment_index=segment_index,
-                start_at=cursor,
-                end_at=finish,
+                start_at=start_at.astimezone(zone),
+                end_at=finish.astimezone(zone),
                 duration_minutes=duration,
                 explanation=_explanation(task, target_date, preferences.timezone_name),
             ))
@@ -194,11 +203,15 @@ def schedule_tasks(
                 reason = "The schedule reached its 40-session limit; remove lower-priority tasks and rebuild."
             elif task.estimated_minutes is None:
                 reason = "Working hours or daily capacity are insufficient for a preferred work session."
+            deadline_conflict = respect_deadlines and task.deadline is not None and deadline <= window_end
+            if deadline_conflict:
+                reason = "The remaining work does not fit before the task deadline."
             unscheduled.append(UnscheduledTask(
                 task_id=task.id,
                 title=task.title,
                 remaining_minutes=remaining,
                 reason=reason,
+                deadline_conflict=deadline_conflict,
             ))
 
     return SchedulePreviewResponse(
@@ -239,15 +252,18 @@ def save_daily_schedule(
     zone = ZoneInfo(preferences.timezone_name)
     start_limit = datetime.combine(request.target_date, preferences.workday_start, tzinfo=zone)
     end_limit = datetime.combine(request.target_date, preferences.workday_end, tzinfo=zone)
-    entries = sorted(request.entries, key=lambda entry: entry.start_at.astimezone(zone))
+    start_limit, end_limit = (value.astimezone(timezone.utc) for value in (start_limit, end_limit))
+    entries = sorted(request.entries, key=lambda entry: entry.start_at.astimezone(timezone.utc))
     duration_by_task: dict[int, int] = {}
     normalized: list[tuple[object, datetime, datetime, int]] = []
     for entry in entries:
-        start_at = entry.start_at.astimezone(zone)
+        start_at = entry.start_at.astimezone(timezone.utc)
         end_at = start_at + timedelta(minutes=entry.duration_minutes)
-        if start_at.date() != request.target_date or start_at < start_limit or end_at > end_limit:
+        if start_at < start_limit or end_at > end_limit:
             raise ValueError("Every schedule entry must fit inside the configured workday")
         task = task_by_id[entry.task_id]
+        if request.respect_deadlines and task.deadline and end_at.timestamp() > _utc_timestamp(task.deadline):
+            raise ValueError("A schedule entry ends after its task deadline")
         duration_by_task[task.id] = duration_by_task.get(task.id, 0) + entry.duration_minutes
         normalized.append((entry, start_at, end_at, task.id))
 
@@ -282,8 +298,8 @@ def save_daily_schedule(
                 schedule_id=schedule.id,
                 task_id=task_id,
                 segment_index=segment_counts[task_id],
-                start_at=start_at,
-                end_at=end_at,
+                start_at=start_at.astimezone(zone),
+                end_at=end_at.astimezone(zone),
                 duration_minutes=entry.duration_minutes,
                 explanation=_explanation(task, request.target_date, preferences.timezone_name),
             ))
@@ -308,14 +324,15 @@ def _schedule_response(db: Session, schedule: DailySchedule) -> DailyScheduleRes
         .where(ScheduleEntry.schedule_id == schedule.id)
         .order_by(ScheduleEntry.start_at, ScheduleEntry.id)
     ).all()
+    zone = ZoneInfo(schedule.timezone_name)
     entries = [ScheduleEntryResponse(
         id=entry.id,
         task_id=entry.task_id,
         title=task.title,
         priority=task.priority,
         segment_index=entry.segment_index,
-        start_at=entry.start_at,
-        end_at=entry.end_at,
+        start_at=entry.start_at if entry.start_at.tzinfo else entry.start_at.replace(tzinfo=zone),
+        end_at=entry.end_at if entry.end_at.tzinfo else entry.end_at.replace(tzinfo=zone),
         duration_minutes=entry.duration_minutes,
         explanation=entry.explanation,
     ) for entry, task in rows]

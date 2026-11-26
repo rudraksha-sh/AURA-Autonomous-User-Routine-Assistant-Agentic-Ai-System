@@ -12,13 +12,16 @@ class WorkflowState(TypedDict, total=False):
     grant_id: str | None
     previous_run_id: str | None
     comparison: dict
+    reconciliation: dict
     intent: Literal["plan_goal", "simulate"]
     permitted_scopes: list[str]
     target_date: str
     task_count: int
+    include_calendar: bool
     proposed_actions: list[str]
     plan: dict
     goal_version: str
+    context_snapshot: dict
     schedule: dict
     capacity: dict
     scenario: dict

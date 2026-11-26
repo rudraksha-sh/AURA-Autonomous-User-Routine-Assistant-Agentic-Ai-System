@@ -55,8 +55,6 @@ def main() -> None:
     from app.core.security import hash_password
     from app.db.session import Base
     from app.main import app
-    from app.models.goal import Goal
-    from app.models.task import Task
     from app.models.user import User
 
     SAMPLE_DIR.mkdir(parents=True, exist_ok=True)
@@ -98,7 +96,6 @@ def main() -> None:
                 db.refresh(user)
             elif user.name != SAMPLE_NAME:
                 raise SystemExit("The sample email already belongs to a different profile; no data was changed.")
-            user_id = user.id
 
         with TestClient(app) as client:
             login = client.post("/api/auth/login", json={"email": SAMPLE_EMAIL, "password": password})

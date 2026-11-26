@@ -11,7 +11,10 @@ class Base(DeclarativeBase):
 connect_args = (
     {"check_same_thread": False}
     if settings.database_url.startswith("sqlite")
-    else {}
+    else (
+        {"sslmode": settings.database_ssl_mode, "sslrootcert": settings.database_ssl_root_cert}
+        if settings.database_ssl_mode != "disable" else {}
+    )
 )
 
 engine = create_engine(

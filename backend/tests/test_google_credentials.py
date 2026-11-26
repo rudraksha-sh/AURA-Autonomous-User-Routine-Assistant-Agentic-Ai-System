@@ -14,7 +14,6 @@ from app.integrations.google.credentials import (
 )
 from app.models.integration import Integration
 from app.models.user import User
-from tests.conftest import test_engine
 
 
 def create_test_user(db: Session) -> User:
@@ -60,7 +59,7 @@ def test_build_google_credentials():
     ]
 
 
-def test_google_integration_not_found():
+def test_google_integration_not_found(test_engine):
     with Session(test_engine) as db:
         with pytest.raises(GoogleIntegrationNotFoundError):
             get_user_google_credentials(
@@ -69,7 +68,7 @@ def test_google_integration_not_found():
             )
 
 
-def test_refresh_token_missing():
+def test_refresh_token_missing(test_engine):
     with Session(test_engine) as db:
         user = create_test_user(db)
 
@@ -102,6 +101,7 @@ def test_refresh_token_missing():
 )
 def test_expired_credentials_are_refreshed(
     mock_refresh,
+    test_engine,
 ):
     with Session(test_engine) as db:
         user = create_test_user(db)
@@ -151,7 +151,7 @@ def test_expired_credentials_are_refreshed(
         mock_refresh.assert_called_once()
 
 
-def test_valid_credentials_are_not_refreshed():
+def test_valid_credentials_are_not_refreshed(test_engine):
     with Session(test_engine) as db:
         user = create_test_user(db)
 

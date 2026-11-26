@@ -1,4 +1,6 @@
+from google_auth_httplib2 import AuthorizedHttp
 from google_auth_oauthlib.flow import Flow
+from httplib2 import Http
 from googleapiclient.discovery import Resource, build
 from sqlalchemy.orm import Session
 
@@ -18,7 +20,7 @@ class GoogleAPIServiceError(GoogleAPIError):
     """Raised when a Google API service cannot be created."""
 
 
-def create_google_flow() -> Flow:
+def create_google_flow(scopes: tuple[str, ...] | None = None) -> Flow:
     """
     Create a Google OAuth flow using the application's Google credentials.
     """
@@ -35,18 +37,18 @@ def create_google_flow() -> Flow:
 
     return Flow.from_client_config(
         client_config,
-        scopes=GOOGLE_OAUTH_SCOPES,
+        scopes=list(scopes) if scopes else GOOGLE_OAUTH_SCOPES,
         redirect_uri=settings.google_redirect_uri,
     )
 
 
-def exchange_google_code(code: str):
+def exchange_google_code(code: str, scopes: tuple[str, ...] | None = None):
     """
     Exchange a Google authorization code for OAuth credentials.
     """
 
-    flow = create_google_flow()
-    flow.fetch_token(code=code)
+    flow = create_google_flow(scopes) if scopes else create_google_flow()
+    flow.fetch_token(code=code, timeout=5)
 
     return flow.credentials
 
@@ -59,7 +61,7 @@ def get_google_user_info(credentials):
     service = build(
         "oauth2",
         "v2",
-        credentials=credentials,
+        http=AuthorizedHttp(credentials, http=Http(timeout=5), max_refresh_attempts=0),
         cache_discovery=False,
     )
 
@@ -93,7 +95,7 @@ def build_google_service(
         return build(
             service_name,
             version,
-            credentials=credentials,
+            http=AuthorizedHttp(credentials, http=Http(timeout=5), max_refresh_attempts=0),
             cache_discovery=False,
         )
     except Exception as exc:

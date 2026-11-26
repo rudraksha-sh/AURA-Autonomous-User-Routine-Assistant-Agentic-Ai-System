@@ -23,3 +23,8 @@ def test_saved_slots_reserve_time_and_reduce_remaining_capacity():
     capacity = evaluate_capacity(schedule)
     assert capacity.remaining_minutes == 90
     assert capacity.fits_proposed_day is False
+
+    assert capacity.workload_minutes == 120
+    assert capacity.workload_pressure_pct == 400
+    assert capacity.schedule_feasibility_pct == 25
+    assert capacity.reasons

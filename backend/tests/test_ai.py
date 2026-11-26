@@ -1,5 +1,6 @@
 from tests.conftest import register_and_verify_email
 from unittest.mock import patch
+from sqlalchemy import text
 
 from app.schemas.ai import GoalPlan, PlannedTask
 
@@ -275,9 +276,16 @@ def test_ai_plan_creates_agent_run(client):
 
     # The public API does not expose AgentRun directly,
     # so verify it through PostgreSQL.
-    from sqlalchemy import text
-
-    from tests.conftest import test_engine
+def test_ai_plan_creates_agent_run(client, test_engine):
+    token = register_and_login(client, "ai-agent-run@example.com")
+    plan = mock_goal_plan()
+    with patch("app.services.ai_service.generate_goal_plan", return_value=plan):
+        response = client.post(
+            "/api/ai/plan",
+            headers=auth_headers(token),
+            json={"goal": "Build a personal AI assistant"},
+        )
+    assert response.status_code == 201
 
     with test_engine.connect() as connection:
         result = connection.execute(

@@ -3,7 +3,8 @@ from datetime import datetime, timedelta, timezone
 from argon2 import PasswordHasher
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
+import jwt
+from jwt import InvalidTokenError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -61,6 +62,7 @@ def decode_access_token(token: str) -> dict:
         token,
         settings.jwt_secret_key,
         algorithms=[settings.jwt_algorithm],
+        options={"require": ["exp"]},
     )
 
 
@@ -113,7 +115,7 @@ def get_current_user_id(
 
         return user_id
 
-    except (JWTError, ValueError, TypeError):
+    except (InvalidTokenError, ValueError, TypeError):
         raise credentials_exception
 
 

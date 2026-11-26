@@ -19,10 +19,18 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
     
     
-config.set_main_option(
-    "sqlalchemy.url",
-    settings.database_url.replace("%", "%%"),
-)
+database_url = settings.database_url
+if settings.database_ssl_mode != "disable":
+    from sqlalchemy.engine import make_url
+
+    parsed_url = make_url(database_url)
+    if parsed_url.get_backend_name() != "postgresql":
+        raise RuntimeError("DATABASE_SSL_MODE requires a PostgreSQL URL")
+    database_url = str(parsed_url.update_query_dict({
+        "sslmode": settings.database_ssl_mode,
+        "sslrootcert": settings.database_ssl_root_cert,
+    }))
+config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
 
 # add your model's MetaData object here
 # for 'autogenerate' support
@@ -31,6 +39,21 @@ config.set_main_option(
 
 
 target_metadata = Base.metadata
+
+
+def include_object(obj, name, type_, reflected, compare_to):
+    # These two fixture artifacts predate the isolated-schema fixture. Ignore
+    # only their tables, while leaving every application object comparable.
+    return not (type_ == "table" and name in {
+        "aura_fixture_sentinel_5128245332ac4f38a30356cce6666bcd",
+        "aura_fixture_sentinel_7e8ea7788c854353844d648a14feee77",
+    } and reflected)
+
+
+def compare_type(context, inspected_column, metadata_column, inspected_type, metadata_type):
+    if metadata_column.name == "embedding" and str(inspected_type).lower() == "vector(384)":
+        return False
+    return None
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -54,6 +77,8 @@ def run_migrations_offline() -> None:
     context.configure(
         url=url,
         target_metadata=target_metadata,
+        include_object=include_object,
+        compare_type=compare_type,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
@@ -77,7 +102,10 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
+            include_object=include_object,
+            compare_type=compare_type,
         )
 
         with context.begin_transaction():

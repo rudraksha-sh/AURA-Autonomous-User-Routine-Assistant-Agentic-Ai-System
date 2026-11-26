@@ -4,12 +4,14 @@ def test_cors_allows_configured_origin(client):
         headers={
             "Origin": "http://localhost:3000",
             "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "authorization",
         },
     )
 
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
-    assert response.headers["access-control-allow-credentials"] == "true"
+    assert response.headers["access-control-allow-headers"] == "authorization"
+    assert "access-control-allow-credentials" not in response.headers
 
 
 def test_cors_rejects_unconfigured_origin(client):
@@ -18,6 +20,7 @@ def test_cors_rejects_unconfigured_origin(client):
         headers={
             "Origin": "http://evil.example.com",
             "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "authorization",
         },
     )
 

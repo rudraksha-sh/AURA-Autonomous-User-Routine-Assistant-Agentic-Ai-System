@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
+from app.agents.context.schemas import ContextPreview
 from app.agents.replanning.schemas import PlanComparison
 from app.agents.intelligence.schemas import CapacityFinding
 from app.schemas.daily_planner import SchedulePreviewResponse, WhatIfRequest, WhatIfResponse
@@ -26,6 +27,7 @@ class PlanStart(BaseModel):
     previous_run_id: UUID | None = None
     target_date: date
     task_count: int = Field(default=5, ge=3, le=8)
+    include_calendar: bool = False
 
     @model_validator(mode="after")
     def replans_require_review(self):
@@ -83,7 +85,9 @@ class StoredPlan(BaseModel):
 
 class WorkflowEvidence(BaseModel):
     source: Literal["aura.goal"]
+    context: ContextPreview | None = None
     grant_id: UUID | None = None
+    reconciled: bool = False
     status: Literal["verified"] | None = None
     task_ids: list[int] = Field(default_factory=list)
 

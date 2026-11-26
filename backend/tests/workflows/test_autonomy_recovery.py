@@ -8,7 +8,6 @@ from sqlalchemy import select
 from app.db.session import SessionLocal
 from app.models.autonomy import AutonomyGrant
 from app.models.task import Task
-from tests.conftest import test_engine
 from tests.workflows.test_goal_workflow import headers, start_plan
 
 
@@ -50,7 +49,7 @@ def test_scope_budget_and_explicit_undo(client):
     assert undone.json()["status"] == "undone"
     assert client.post(undo_url, headers=auth, json={"revision": 0, "confirm": True}).status_code == 409
     status = client.get(f"/api/v1/workflows/{run['id']}/verification", headers=auth)
-    assert status.json()["status"] == "unverified"
+    assert status.json()["status"] == "failed"
     with SessionLocal() as db:
         assert list(db.scalars(select(Task))) == []
 
@@ -89,8 +88,9 @@ def test_application_undo_refuses_edited_tasks(client):
     assert client.get(path, headers=auth).json()["revision"] == 1
 
 
-@pytest.mark.skipif(test_engine.dialect.name != "postgresql", reason="requires independent PostgreSQL connections")
-def test_concurrent_approvals_commit_one_task_batch(client):
+def test_concurrent_approvals_commit_one_task_batch(client, test_engine):
+    if test_engine.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL connections")
     auth = headers(client, "approval-race@example.com")
     _, run = start_plan(client, auth)
     url = f"/api/v1/workflows/{run['id']}/transition"
@@ -105,8 +105,9 @@ def test_concurrent_approvals_commit_one_task_batch(client):
         assert len(list(db.scalars(select(Task)))) == 5
 
 
-@pytest.mark.skipif(test_engine.dialect.name != "postgresql", reason="requires independent PostgreSQL connections")
-def test_concurrent_grant_use_respects_single_execution_limit(client):
+def test_concurrent_grant_use_respects_single_execution_limit(client, test_engine):
+    if test_engine.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL connections")
     auth = headers(client, "grant-race@example.com")
     payload, _ = start_plan(client, auth)
     grant = grant_for(client, auth, payload["goal_id"])

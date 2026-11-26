@@ -78,7 +78,7 @@ def preview_schedule(
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
-    return preview_daily_schedule(db, user_id, request.target_date)
+    return preview_daily_schedule(db, user_id, request.target_date, respect_deadlines=request.respect_deadlines)
 
 
 @router.post("/schedules/what-if", response_model=WhatIfResponse)

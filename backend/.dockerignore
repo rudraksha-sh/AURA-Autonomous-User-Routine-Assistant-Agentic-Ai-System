@@ -1,0 +1,13 @@
+**
+!Dockerfile
+!requirements.production.lock
+!app/
+!app/**
+!alembic/
+!alembic/**
+!alembic.ini
+!ops/
+!ops/migrate.py
+!ops/bootstrap_database.py
+**/__pycache__/
+**/*.pyc

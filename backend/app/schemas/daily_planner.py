@@ -1,9 +1,9 @@
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time
 from typing import Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class PlanningPreferencesInput(BaseModel):
@@ -41,6 +41,7 @@ class PlanningPreferencesResponse(PlanningPreferencesInput):
 
 class SchedulePreviewRequest(BaseModel):
     target_date: date
+    respect_deadlines: bool = False
 
 
 class WhatIfTaskInput(BaseModel):
@@ -58,17 +59,23 @@ class WhatIfTaskInput(BaseModel):
         return value
 
 
+class WhatIfDeadlineChange(BaseModel):
+    task_id: int = Field(gt=0)
+    deadline: AwareDatetime
+
+
 class WhatIfRequest(BaseModel):
     target_date: date
     capacity_minutes: int | None = Field(default=None, ge=30, le=720)
     proposed_task: WhatIfTaskInput | None = None
+    deadline_change: WhatIfDeadlineChange | None = None
     unavailable_start_at: datetime | None = None
     unavailable_minutes: int | None = Field(default=None, ge=1, le=240)
 
     @model_validator(mode="after")
     def scenario_must_change_something(self):
-        if self.capacity_minutes is None and self.proposed_task is None and self.unavailable_start_at is None:
-            raise ValueError("Provide a capacity change, proposed task, or unavailable time slot")
+        if all(value is None for value in (self.capacity_minutes, self.proposed_task, self.unavailable_start_at, self.deadline_change)):
+            raise ValueError("Provide a capacity, task, deadline, or availability change")
         if (self.unavailable_start_at is None) != (self.unavailable_minutes is None):
             raise ValueError("Unavailable start time and duration must be provided together")
         if self.unavailable_start_at is not None and (self.unavailable_start_at.tzinfo is None or self.unavailable_start_at.utcoffset() is None):
@@ -97,6 +104,8 @@ class WhatIfUnscheduledTask(BaseModel):
 
 
 class WhatIfSchedule(BaseModel):
+    remaining_minutes: int = 0
+    fits: bool = True
     target_date: date
     timezone_name: str
     capacity_minutes: int
@@ -125,6 +134,7 @@ class ScheduledTaskProposal(BaseModel):
 
 
 class UnscheduledTask(BaseModel):
+    deadline_conflict: bool = False
     task_id: int
     title: str
     remaining_minutes: int | None
@@ -132,6 +142,8 @@ class UnscheduledTask(BaseModel):
 
 
 class SchedulePreviewResponse(BaseModel):
+    calendar_status: Literal["not_requested", "included", "unavailable"] = "not_requested"
+    calendar_conflict_task_ids: list[int] = Field(default_factory=list)
     target_date: date
     timezone_name: str
     capacity_minutes: int
@@ -154,6 +166,7 @@ class ScheduleSaveEntry(BaseModel):
 
 
 class ScheduleSaveRequest(BaseModel):
+    respect_deadlines: bool = False
     idempotency_key: UUID
     target_date: date
     entries: list[ScheduleSaveEntry] = Field(min_length=1, max_length=40)

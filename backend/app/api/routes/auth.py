@@ -5,7 +5,7 @@ import secrets
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
-from jose import JWTError
+from jwt import InvalidTokenError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -137,7 +137,7 @@ def verify_login_otp(data: LoginOtpRequest, request: Request, db: Session = Depe
             raise ValueError
         user_id = int(claims.get("sub", ""))
         version = claims.get("ver", 0)
-    except (JWTError, ValueError, TypeError):
+    except (InvalidTokenError, ValueError, TypeError):
         raise HTTPException(status_code=400, detail="The sign-in code is invalid or expired")
     user = db.get(User, user_id)
     if user is None or not user.two_factor_enabled or not user.email_verified or version != user.token_version:
